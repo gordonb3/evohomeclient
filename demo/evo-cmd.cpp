@@ -18,7 +18,7 @@
 
 
 #ifndef MYNAME
-#define MYNAME "evo-settemp"
+#define MYNAME "evo-cmd"
 #endif
 
 #ifndef MYPATH

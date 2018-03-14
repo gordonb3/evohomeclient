@@ -2,12 +2,6 @@
 usr=''
 #fill in Evohome password
 pw=''
-#fill in Domoticz URL; e.g. 127.0.0.1 https://127.0.0.1 127.0.0.1:8080/domoticz
-url='127.0.0.1'
-#fill in Domoticz port; leave empty if already part of url
-port='8080'
-#fill in script root; e.g. script:///home/<user>/evohome-client script:///usr/local/bin etc
-srt='script://'
 
 #uncomment and complete the following line to enable logging to a file
 ;logfile=''
@@ -24,6 +18,4 @@ srt='script://'
 #or supply the Evohome systemId
 ;systemId=''
 
-#uncomment the following line if you want the hardware to be registered
-#under a different name in Domoticz (default:evohome)
-;hwname='evohome'
+

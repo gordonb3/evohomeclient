@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2016 Gordon Bos <gordon@bosvangennip.nl> All rights reserved.
  *
- * Demo app for connecting to Evohome and Domoticz
+ * Demo app for connecting to Evohome
  *
  *
  *
@@ -13,62 +13,84 @@
 #include <map>
 #include <cstring>
 #include <time.h>
-#include "../domoticzclient/domoticzclient.h"
 #include "../evohomeclient/evohomeclient.h"
 
 #ifndef CONF_FILE
 #define CONF_FILE "evoconfig"
 #endif
 
-#ifndef LOCKFILE
-#define LOCKFILE "/tmp/evo-noup.tmp"
-#endif
-
 #ifndef SCHEDULE_CACHE
 #define SCHEDULE_CACHE "schedules.json"
 #endif
 
-#define HARDWARE_TYPE "40"
-
-#define CONTROLLER_SUBTYPE "Evohome"
-#define CONTROLLER_SUBTYPE_ID "69"
-
-#define HOTWATER_SUBTYPE "Hot Water"
-#define HOTWATER_SUBTYPE_ID "71"
-
-#define ZONE_SUBTYPE "Zone"
-#define ZONE_SUBTYPE_ID "70"
-
 using namespace std;
 
 // Include common functions
-#include "evo-common.cpp"
+//#include "evo-common.cpp"
 
 
+using namespace std;
+
+std::string configfile;
+std::map<std::string, std::string> evoconfig;
+
+bool verbose;
+
+std::string ERROR = "ERROR: ";
+std::string WARN = "WARNING: ";
 
 std::string backupfile;
 
 time_t now;
 int tzoffset=-1;
 
-bool createdev = false;
-bool updatedev = true;
-bool reloadcache = false;
-
-
-
-/*
- * Convert domoticz host settings into fully qualified url prefix
- */
-std::string get_domoticz_host(std::string url, std::string port)
+bool read_evoconfig()
 {
-	stringstream ss;
-	if (url.substr(0,4) != "http")
-		ss << "http://";
-	ss << url;
-	if (port.length() > 0)
-		ss << ":" << port;
-	return ss.str();
+	ifstream myfile (configfile.c_str());
+	if ( myfile.is_open() )
+	{
+		stringstream key,val;
+		bool isKey = true;
+		string line;
+		unsigned int i;
+		while ( getline(myfile,line) )
+		{
+			if ( (line[0] == '#') || (line[0] == ';') )
+				continue;
+			for (i = 0; i < line.length(); i++)
+			{
+				if ( (line[i] == ' ') || (line[i] == '\'') || (line[i] == '"') || (line[i] == 0x0d) )
+					continue;
+				if (line[i] == '=')
+				{
+					isKey = false;
+					continue;
+				}
+				if (isKey)
+					key << line[i];
+				else
+					val << line[i];
+			}
+			if ( ! isKey )
+			{
+				string skey = key.str();
+				evoconfig[skey] = val.str();
+				isKey = true;
+				key.str("");
+				val.str("");
+			}
+		}
+		myfile.close();
+		return true;
+	}
+	return false;
+}
+
+
+void exit_error(std::string message)
+{
+	cerr << message << endl;
+	exit(1);
 }
 
 
@@ -85,7 +107,7 @@ void usage(std::string mode)
 		cout << "Type \"evo-setmode --help\" for more help" << endl;
 		exit(0);
 	}
-	cout << "Usage: evo-setmode [OPTIONS] <evohome mode>" << endl;
+	cout << "Usage: evo-settemp [OPTIONS] <zoneid> <0|1> <setpoint> [ISO time]" << endl;
 	cout << endl;
 	cout << "  -v, --verbose           print a lot of information" << endl;
 	cout << "  -c, --conf=FILE         use FILE for server settings and credentials" << endl;
@@ -104,8 +126,6 @@ void parse_args(int argc, char** argv) {
 				if (word[j] == 'h') {
 					usage("short");
 					exit(0);
-				} else if (word[j] == 'i') {
-					createdev = true;
 				} else if (word[j] == 'v') {
 					verbose = true;
 				} else {
@@ -116,8 +136,6 @@ void parse_args(int argc, char** argv) {
 		} else if (word == "--help") {
 			usage("long");
 			exit(0);
-		} else if (word == "--init") {
-			createdev = true;
 		} else if (word == "--verbose") {
 			verbose = true;
 		} else {
@@ -202,16 +220,6 @@ std::string local_to_utc(std::string utc_time)
 }
 
 
-void update_zone(DomoticzClient dclient, map<std::string,std::string> zonedata)
-{
-	std::string idx;
-	idx = dclient.devices[zonedata["zoneId"]].idx;
-	if (verbose)
-		cout << " - change status of zone " << zonedata["name"] << ": temperature = " << zonedata["temperature"] << ", setpoint = " << zonedata["targetTemperature"] << ", mode = " << zonedata["setpointMode"] << ", until = " << zonedata["until"] << endl;
-	dclient.update_zone_status(idx, zonedata["temperature"], zonedata["targetTemperature"], zonedata["setpointMode"], zonedata["until"]);
-}
-
-
 int main(int argc, char** argv)
 {
 	// get current time
@@ -234,65 +242,8 @@ int main(int argc, char** argv)
 		if ( ! eclient.cancel_temperature_override(string(argv[1])) )
 			exit_error(ERROR+"failed to cancel override for zone "+argv[1]);
 
-		eclient.full_installation();
-
-		// get Evohome heating system
-		EvohomeClient::temperatureControlSystem* tcs = NULL;
-		if ( evoconfig.find("systemId") != evoconfig.end() )
-		{
-			if (verbose)
-				cout << "using systemId from " << CONF_FILE << endl;
-	 		tcs = eclient.get_temperatureControlSystem_by_ID(evoconfig["systemId"]);
-			if (tcs == NULL)
-				exit_error(ERROR+"the Evohome systemId specified in "+CONF_FILE+" cannot be found");
-		}
-		else if (eclient.is_single_heating_system())
-			tcs = &eclient.locations[0].gateways[0].temperatureControlSystems[0];
-		else
-			select_temperatureControlSystem(eclient);
-		if (tcs == NULL)
-			exit_error(ERROR+"multiple Evohome systems found - don't know which one to use for status");
-
-		// get status for Evohome heating system
-		if (verbose)
-			cout << "retrieve status of Evohome heating system\n";
-		if ( !	eclient.get_status(tcs->locationId) )
-			exit_error(ERROR+"failed to retrieve status");
-
-		if ( reloadcache || ( ! eclient.read_schedules_from_file(SCHEDULE_CACHE) ) )
-		{
-			if (verbose)
-				cout << "reloading schedules cache\n";
-			if ( ! eclient.schedules_backup(SCHEDULE_CACHE) )
-				exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
-			eclient.read_schedules_from_file(SCHEDULE_CACHE);
-		}
-		if (verbose)
-			cout << "read schedules from cache\n";
-
-		DomoticzClient dclient = DomoticzClient(get_domoticz_host(evoconfig["url"], evoconfig["port"]));
-
-		int hwid = dclient.get_hwid(HARDWARE_TYPE, evoconfig["hwname"]);
-		if (verbose)
-			cout << "got ID '" << hwid << "' for Evohome hardware with name '" << evoconfig["hwname"] << "'\n";
-
-		if (hwid == -1)
-			exit_error(ERROR+"evohome hardware not found");
-
-		dclient.get_devices(hwid);
-
-		// update zone
-		for (std::vector<EvohomeClient::zone>::size_type i = 0; i < tcs->zones.size(); ++i)
-		{
-			if (string(argv[1]) == tcs->zones[i].zoneId) {
-				std::map<std::string, std::string> zonedata = evo_get_zone_data(tcs, i);
-				zonedata["until"] = eclient.get_next_switchpoint_ex(tcs->zones[i].schedule, zonedata["temperature"]);
-				update_zone(dclient, zonedata);
-			}
-		}
-		dclient.cleanup();
 		eclient.cleanup();
-		exit(0);
+		return 0;
 	}
 
 	std::string s_until = "";
@@ -319,32 +270,6 @@ int main(int argc, char** argv)
 	}
 
 	eclient.set_temperature(string(argv[1]), string(argv[3]), s_until);
-
-
-	if (s_until != "")
-	{
-		// correct UTC until time in Domoticz
-
-		if (verbose)
-			cout << "connect to Domoticz server\n";
-		DomoticzClient dclient = DomoticzClient(get_domoticz_host(evoconfig["url"], evoconfig["port"]));
-
-		int hwid = dclient.get_hwid(HARDWARE_TYPE, evoconfig["hwname"]);
-		if (verbose)
-			cout << "got ID '" << hwid << "' for Evohome hardware with name '" << evoconfig["hwname"] << "'\n";
-
-		if (hwid == -1)
-			exit_error(ERROR+"evohome hardware not found");
-
-		dclient.get_devices(hwid);
-
-		std::string idx = dclient.devices[argv[1]].idx;
-		std::string temperature = dclient.devices[argv[1]].Temp;
-
-		dclient.update_zone_status(idx, temperature, string(argv[3]), "TemporaryOverride", utc_to_local(s_until).substr(0,19));
-
-		dclient.cleanup();
-	}
 
 	eclient.cleanup();
 	return 0;
