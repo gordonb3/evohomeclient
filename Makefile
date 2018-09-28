@@ -5,7 +5,7 @@ EV_OBJ  = $(patsubst %.cpp,%.o,$(wildcard evohomeclient/*.cpp)) $(patsubst %.cpp
 DEPS    = $(wildcard evohomeclient/*.h) $(wildcard evohomeclient/jsoncpp/*.h) $(wildcard demo/*.h)
 
 
-all: evo-demo evo-cmd evo-schedule-backup evo-setmode evo-settemp evo-nodomo
+all: evo-demo evo-cmd evo-schedule-backup evo-setmode evo-settemp
 
 evo-demo: demo/evo-demo.o $(EV_OBJ)
 	$(CC) demo/evo-demo.o $(EV_OBJ) $(LDFLAGS) -o evo-demo
@@ -29,5 +29,5 @@ evo-settemp: demo/evo-settemp.o $(EV_OBJ)
 distclean: clean
 
 clean:
-	rm -f $(EV_OBJ) $(wildcard demo/*.o) evo-demo evo-cmd evo-schedule-backup evo-setmode evo-settemp evo-client 
+	rm -f $(EV_OBJ) $(wildcard demo/*.o) evo-demo evo-cmd evo-schedule-backup evo-setmode evo-settemp
 
