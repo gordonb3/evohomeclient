@@ -150,7 +150,7 @@ std::string EvohomeClient::send_receive_data(std::string url, std::string postda
  ************************************************************************/
 
 /* 
- * Retrieve evohome user info
+ * Login to the evohome portal
  * Throws std::invalid_argument from (web) send_receive_data
  */
 bool EvohomeClient::login(std::string user, std::string password)
@@ -201,6 +201,82 @@ bool EvohomeClient::login(std::string user, std::string password)
 	if (!szError.empty())
 		return false;
 
+	v2refresh_token = j_login["refresh_token"].asString();
+	std::stringstream atoken;
+	atoken << "Authorization: bearer " << j_login["access_token"].asString();
+
+	evoheader.clear();
+	evoheader.push_back(atoken.str());
+	evoheader.push_back("applicationId: b013aa26-9724-4dbd-8897-048b9aada249");
+	evoheader.push_back("accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	evoheader.push_back("content-type: application/json");
+	evoheader.push_back("charsets: utf-8");
+
+	bool got_uid;
+	try
+	{
+		got_uid = user_account();
+	}
+	catch (...)
+	{
+		throw;
+	}
+	return got_uid;
+}
+
+
+/* 
+ * Renew the Authorization token
+ * Throws std::invalid_argument from (web) send_receive_data
+ */
+bool EvohomeClient::renew_login()
+{
+	std::vector<std::string> lheader;
+	lheader.push_back("Authorization: Basic YjAxM2FhMjYtOTcyNC00ZGJkLTg4OTctMDQ4YjlhYWRhMjQ5OnRlc3Q=");
+	lheader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	lheader.push_back("charsets: utf-8");
+
+	std::stringstream pdata;
+	pdata << "installationInfo-Type=application%2Fx-www-form-urlencoded;charset%3Dutf-8";
+	pdata << "&Host=rs.alarmnet.com%2F";
+	pdata << "&Cache-Control=no-store%20no-cache";
+	pdata << "&Pragma=no-cache";
+	pdata << "&grant_type=refresh_token";
+	pdata << "&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous";
+	pdata << "&refresh_token=" << v2refresh_token;
+	pdata << "&Connection=Keep-Alive";
+
+	std::string s_res;
+	try
+	{
+		s_res = send_receive_data("/Auth/OAuth/Token", pdata.str(), lheader);
+	}
+	catch (...)
+	{
+		throw;
+	}
+	if (s_res[0] == '[') // got unnamed array as reply
+	{
+		s_res[0] = ' ';
+		size_t len = s_res.size();
+		len--;
+		s_res[len] = ' ';
+	}
+
+	Json::Value j_login;
+	Json::Reader jReader;
+	if (!jReader.parse(s_res.c_str(), j_login))
+		return false;
+
+	std::string szError = "";
+	if (j_login.isMember("error"))
+		szError = j_login["error"].asString();
+	if (j_login.isMember("message"))
+		szError = j_login["message"].asString();
+	if (!szError.empty())
+		return false;
+
+	v2refresh_token = j_login["refresh_token"].asString();
 	std::stringstream atoken;
 	atoken << "Authorization: bearer " << j_login["access_token"].asString();
 
@@ -347,7 +423,7 @@ void EvohomeClient::get_gateways(int location)
 
 /* 
  * Retrieve evohome installation info
- * Throws std::invalid_argument from (web) send_receive_data
+ * Throws std::invalid_argument
  */
 bool EvohomeClient::full_installation()
 {
@@ -368,7 +444,10 @@ bool EvohomeClient::full_installation()
 	Json::Reader jReader;
 	j_fi.clear();
 	if (!jReader.parse(ss_jdata.str(), j_fi) || !j_fi["locations"].isArray())
-		return false; // invalid return
+	{
+		throw std::invalid_argument( "Failed to parse server response as JSON" );
+		return false;
+	}
 
 	size_t l = j_fi["locations"].size();
 	for (size_t i = 0; i < l; ++i)
@@ -392,7 +471,7 @@ bool EvohomeClient::full_installation()
 
 /* 
  * Retrieve evohome status info
- * Throws std::invalid_argument from (web) send_receive_data
+ * Throws std::invalid_argument
  */
 bool EvohomeClient::get_status(std::string locationId)
 {
@@ -427,7 +506,10 @@ bool EvohomeClient::get_status(int location)
 	Json::Reader jReader;
 	j_stat.clear();
 	if (!jReader.parse(s_res, j_stat))
+	{
+		throw std::invalid_argument( "Failed to parse server response as JSON" );
 		return false;
+	}
 	locations[location].status = &j_stat;
 	j_loc = locations[location].status;
 
@@ -620,7 +702,7 @@ std::string EvohomeClient::request_next_switchpoint(std::string zoneId)
 	{
 		throw;
 	}
-	if (s_res[0] == '[') // got unnamed array as reply
+	if (s_res[0] == '[') // received unnamed array as reply
 	{
 		s_res[0] = ' ';
 		size_t len = s_res.size();
@@ -666,10 +748,15 @@ bool EvohomeClient::get_zone_schedule(std::string zoneId, std::string zoneType)
 	}
 	if (!s_res.find("\"id\""))
 		return false;
-	Json::Reader jReader;
 	EvohomeClient::zone* zone = get_zone_by_ID(zoneId);
-	if ((zone == NULL) || !jReader.parse(s_res.c_str(), zone->schedule))
+	if (zone == NULL)
 		return false;
+	Json::Reader jReader;
+	if (!jReader.parse(s_res.c_str(), zone->schedule))
+	{
+		throw std::invalid_argument( "Failed to parse server response as JSON" );
+		return false;
+	}
 	return true;
 }
 

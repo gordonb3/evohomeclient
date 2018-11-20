@@ -18,6 +18,7 @@ class EvohomeClient
 {
 	private:
 	std::string v2uid;
+	std::string v2refresh_token;
 	std::vector<std::string> evoheader;
 	int tzoffset;
 	int lastDST;
@@ -87,6 +88,7 @@ class EvohomeClient
 	void cleanup();
 
 	bool login(std::string user, std::string password);
+	bool renew_login();
 	bool full_installation();
 	bool get_status(int location);
 	bool get_status(std::string locationId);

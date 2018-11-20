@@ -63,6 +63,7 @@ void EvohomeOldClient::cleanup()
 
 /*
  * Execute web query
+ * Throws std::invalid_argument
  */
 std::string EvohomeOldClient::send_receive_data(std::string url, std::vector<std::string> &header)
 {
@@ -83,7 +84,7 @@ std::string EvohomeOldClient::send_receive_data(std::string url, std::string pos
 		throw;
 	}
 
-	if (s_res.find("<title>") != std::string::npos) // got an HTML page
+	if (s_res.find("<title>") != std::string::npos) // received an HTML page
 	{
 		std::stringstream ss_err;
 		ss_err << "Bad return: ";
@@ -112,6 +113,7 @@ std::string EvohomeOldClient::send_receive_data(std::string url, std::string pos
 
 /* 
  * login to evohome web server
+ * Throws std::invalid_argument
  */
 bool EvohomeOldClient::login(std::string user, std::string password)
 {
@@ -132,7 +134,7 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 		throw;
 	}
 
-	if (s_res[0] == '[') // got unnamed array as reply
+	if (s_res[0] == '[') // received unnamed array as reply
 	{
 		s_res[0] = ' ';
 		size_t len = s_res.size();
@@ -143,7 +145,10 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 	Json::Value j_login;
 	Json::Reader jReader;
 	if (!jReader.parse(s_res.c_str(), j_login))
+	{
+		throw std::invalid_argument( "Failed to parse server response as JSON" );
 		return false;
+	}
 
 	std::string szError = "";
 	if (j_login.isMember("error"))
@@ -152,13 +157,15 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 		szError = j_login["message"].asString();
 	if (!szError.empty())
 	{
-		std::cerr << "Login to Evohome server failed with message: " << szError << "\n";
+		std::stringstream ss_err;
+		ss_err << "Login to Evohome server failed with message: " << szError;
+		throw std::invalid_argument( ss_err.str() );
 		return false;
 	}
 
 	if (!j_login.isMember("sessionId") || !j_login.isMember("userInfo") || !j_login["userInfo"].isObject() || !j_login["userInfo"].isMember("userID"))
 	{
-		std::cerr << "Login to Evohome server returned unknown data\n";
+		throw std::invalid_argument( "Login to Evohome server did not return required data" );
 		return false;
 	}
 
@@ -182,6 +189,10 @@ bool EvohomeOldClient::login(std::string user, std::string password)
  *									*
  ************************************************************************/
 
+/* 
+ * Retrieve evohome installation info
+ * Throws std::invalid_argument
+ */
 bool EvohomeOldClient::full_installation()
 {
 	locations.clear();
@@ -201,7 +212,10 @@ bool EvohomeOldClient::full_installation()
 	}
 	Json::Reader jReader;
 	if (!jReader.parse(ss_jdata.str(), j_fi))
+	{
+		throw std::invalid_argument( "Failed to parse server response as JSON" );
 		return false;
+	}
 
 	size_t l = 0;
 	if (j_fi["locations"].isArray())
@@ -212,6 +226,10 @@ bool EvohomeOldClient::full_installation()
 }
 
 
+/* 
+ * Extract a zone's temperature from system status
+ * Throws std::invalid_argument from full_installation()
+ */
 std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
 {
 	if (locations.size() == 0)
