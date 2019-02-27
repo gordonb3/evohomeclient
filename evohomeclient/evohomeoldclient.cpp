@@ -12,12 +12,15 @@
 #include <ctime>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include "webclient.h"
 #include "evohomeoldclient.h"
 #include <stdexcept>
 
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
+
+#define SESSION_EXPIRATION_TIME 899
 
 
 /*
@@ -100,6 +103,8 @@ std::string EvohomeOldClient::send_receive_data(std::string url, std::string pos
 		}
 		throw std::invalid_argument( ss_err.str() );
 	}
+
+	v1lastwebcall = time(NULL);
 	return s_res;
 }
 
@@ -169,10 +174,73 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 		return false;
 	}
 
-	std::string sessionId = j_login["sessionId"].asString();
+	v1sessionId = j_login["sessionId"].asString();
 	std::stringstream atoken;
-	atoken << "sessionId: " << sessionId;
+	atoken << "sessionId: " << v1sessionId;
 	v1uid = j_login["userInfo"]["userID"].asString();
+
+	evoheader.clear();
+	evoheader.push_back(atoken.str());
+	evoheader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
+	evoheader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+
+	return true;
+}
+
+
+/*
+ * Save authorization key to a backup file
+ */
+bool EvohomeOldClient::save_auth_to_file(std::string filename)
+{
+	std::ofstream myfile (filename.c_str(), std::ofstream::trunc);
+	if ( myfile.is_open() )
+	{
+		Json::Value j_auth;
+
+		j_auth["session_id"] = v1sessionId;
+		j_auth["last_use"] = static_cast<int>(v1lastwebcall);
+		j_auth["user_id"] = v1uid;
+
+		myfile << j_auth.toStyledString() << "\n";
+		myfile.close();
+		return true;
+	}
+	return false;
+}
+
+
+/*
+ * Load authorization key from a backup file
+ */
+bool EvohomeOldClient::load_auth_from_file(std::string filename)
+{
+	std::stringstream ss;
+	std::ifstream myfile (filename.c_str());
+	if ( myfile.is_open() )
+	{
+		std::string line;
+		while ( getline (myfile,line) )
+		{
+			ss << line << '\n';
+		}
+		myfile.close();
+	}
+	Json::Value j_auth;
+	Json::Reader jReader;
+	if (!jReader.parse(ss.str().c_str(), j_auth))
+		return false;
+
+	v1sessionId = j_auth["session_id"].asString();
+	v1lastwebcall =	static_cast<time_t>(atoi(j_auth["last_use"].asString().c_str()));
+	v1uid = j_auth["user_id"].asString();
+
+
+	if ((time(NULL) - v1lastwebcall) > SESSION_EXPIRATION_TIME)
+		return false;
+
+	std::stringstream atoken;
+	atoken << "sessionId: " << v1sessionId;
 
 	evoheader.clear();
 	evoheader.push_back(atoken.str());
@@ -217,11 +285,13 @@ bool EvohomeOldClient::full_installation()
 		return false;
 	}
 
-	size_t l = 0;
-	if (j_fi["locations"].isArray())
-		l = j_fi["locations"].size();
+	if (!j_fi["locations"].isArray())
+		return false;
+
+	size_t l = j_fi["locations"].size();
 	for (size_t i = 0; i < l; ++i)
 		locations[i].installationInfo = &j_fi["locations"][(int)(i)];
+
 	return true;
 }
 

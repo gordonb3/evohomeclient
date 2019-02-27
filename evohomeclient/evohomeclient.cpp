@@ -201,9 +201,11 @@ bool EvohomeClient::login(std::string user, std::string password)
 	if (!szError.empty())
 		return false;
 
+	v2access_token = j_login["access_token"].asString();
 	v2refresh_token = j_login["refresh_token"].asString();
+	v2token_expiration_time = time(NULL) + atoi(j_login["expires_in"].asString().c_str());
 	std::stringstream atoken;
-	atoken << "Authorization: bearer " << j_login["access_token"].asString();
+	atoken << "Authorization: bearer " << v2access_token;
 
 	evoheader.clear();
 	evoheader.push_back(atoken.str());
@@ -276,9 +278,11 @@ bool EvohomeClient::renew_login()
 	if (!szError.empty())
 		return false;
 
+	v2access_token = j_login["access_token"].asString();
 	v2refresh_token = j_login["refresh_token"].asString();
+	v2token_expiration_time = time(NULL) + atoi(j_login["expires_in"].asString().c_str());
 	std::stringstream atoken;
-	atoken << "Authorization: bearer " << j_login["access_token"].asString();
+	atoken << "Authorization: bearer " << v2access_token;
 
 	evoheader.clear();
 	evoheader.push_back(atoken.str());
@@ -290,6 +294,80 @@ bool EvohomeClient::renew_login()
 	bool got_uid;
 	try
 	{
+		got_uid = user_account();
+	}
+	catch (...)
+	{
+		throw;
+	}
+	return got_uid;
+}
+
+
+/*
+ * Save authorization key to a backup file
+ */
+bool EvohomeClient::save_auth_to_file(std::string filename)
+{
+	std::ofstream myfile (filename.c_str(), std::ofstream::trunc);
+	if ( myfile.is_open() )
+	{
+		Json::Value j_auth;
+
+		j_auth["access_token"] = v2access_token;
+		j_auth["refresh_token"] = v2refresh_token;
+		j_auth["expiration_time"] = v2token_expiration_time;
+
+		myfile << j_auth.toStyledString() << "\n";
+		myfile.close();
+		return true;
+	}
+	return false;
+}
+
+
+/*
+ * Load authorization key from a backup file
+ */
+bool EvohomeClient::load_auth_from_file(std::string filename)
+{
+	std::stringstream ss;
+	std::ifstream myfile (filename.c_str());
+	if ( myfile.is_open() )
+	{
+		std::string line;
+		while ( getline (myfile,line) )
+		{
+			ss << line << '\n';
+		}
+		myfile.close();
+	}
+	Json::Value j_auth;
+	Json::Reader jReader;
+	if (!jReader.parse(ss.str().c_str(), j_auth))
+		return false;
+
+	v2access_token = j_auth["access_token"].asString();
+	v2refresh_token = j_auth["refresh_token"].asString();
+	v2token_expiration_time = static_cast<time_t>(atoi(j_auth["expiration_time"].asString().c_str()));
+
+	if (time(NULL) > v2token_expiration_time)
+		return renew_login();
+
+	std::stringstream atoken;
+	atoken << "Authorization: bearer " << v2access_token;
+
+	evoheader.clear();
+	evoheader.push_back(atoken.str());
+	evoheader.push_back("applicationId: b013aa26-9724-4dbd-8897-048b9aada249");
+	evoheader.push_back("accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	evoheader.push_back("content-type: application/json");
+	evoheader.push_back("charsets: utf-8");
+
+	bool got_uid;
+	try
+	{
+std::cout << "ge user ID\n";
 		got_uid = user_account();
 	}
 	catch (...)
@@ -1007,7 +1085,7 @@ std::string EvohomeClient::get_next_utcswitchpoint_ex(Json::Value &schedule, std
  */
 bool EvohomeClient::schedules_backup(std::string filename)
 {
-	std::ofstream myfile (filename.c_str());
+	std::ofstream myfile (filename.c_str(), std::ofstream::trunc);
 	if ( myfile.is_open() )
 	{
 		Json::Value j_sched;

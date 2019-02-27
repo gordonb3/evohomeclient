@@ -158,7 +158,7 @@ std::map<std::string,std::string> evo_get_zone_data(EvohomeClient::zone *zone)
 int main(int argc, char** argv)
 {
 // get current time
-	now = time(0);
+	now = time(NULL);
 
 // get settings from config file
 	configfile = CONF_FILE;
@@ -167,10 +167,15 @@ int main(int argc, char** argv)
 // connect to Evohome server
 	std::cout << "connect to Evohome server\n";
 	EvohomeClient eclient = EvohomeClient();
-	if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+	if (eclient.load_auth_from_file("/tmp/evo2auth.json"))
+		std::cout << "    reusing saved connection (UK/EMEA)\n";
+	else if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
 		std::cout << "    connected (UK/EMEA)\n";
+
 	EvohomeOldClient v1client = EvohomeOldClient();
-	if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
+	if (v1client.load_auth_from_file("/tmp/evo1auth.json"))
+		std::cout << "    reusing saved connection (US)\n";
+	else if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
 		std::cout << "    connected (US)\n";
 
 // retrieve Evohome installation
@@ -316,6 +321,9 @@ int main(int argc, char** argv)
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << v1client.j_fi.toStyledString() << "\n";
 */
+
+eclient.save_auth_to_file("/tmp/evo2auth.json");
+v1client.save_auth_to_file("/tmp/evo1auth.json");
 
 	eclient.cleanup();
 	v1client.cleanup();

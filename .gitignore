@@ -1,0 +1,5 @@
+evoconfig
+*.o
+*.json
+/evo-*
+*.sample

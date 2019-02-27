@@ -18,16 +18,7 @@
 
 class EvohomeOldClient
 {
-	private:
-	void init();
-
-	std::string send_receive_data(std::string url, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
-
-	std::string v1uid;
-	std::vector<std::string> evoheader;
-
-	public:
+public:
 	struct location
 	{
 		std::string locationId;
@@ -41,11 +32,25 @@ class EvohomeOldClient
 	void cleanup();
 
 	bool login(std::string user, std::string password);
+	bool save_auth_to_file(std::string filename);
+	bool load_auth_from_file(std::string filename);
+
 	bool full_installation();
 	std::string get_zone_temperature(std::string locationId, std::string zoneId, int decimals);
 
 	Json::Value j_fi;
 	std::map<int, location> locations;
+
+private:
+	void init();
+
+	std::string send_receive_data(std::string url, std::vector<std::string> &header);
+	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
+
+	std::string v1sessionId;
+	time_t v1lastwebcall;
+	std::string v1uid;
+	std::vector<std::string> evoheader;
 };
 
 #endif

@@ -16,27 +16,7 @@
 
 class EvohomeClient
 {
-	private:
-	std::string v2uid;
-	std::string v2refresh_token;
-	std::vector<std::string> evoheader;
-	int tzoffset;
-	int lastDST;
-
-	std::string send_receive_data(std::string url, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
-	std::string put_receive_data(std::string url, std::string putdata, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header, std::string method);
-
-	void init();
-	bool user_account();
-
-	void get_gateways(int location);
-	void get_temperatureControlSystems(int location, int gateway);
-	void get_zones(int location, int gateway, int temperatureControlSystem);
-	void get_dhw(int location, int gateway, int temperatureControlSystem);
-
-	public:
+public:
 	struct zone
 	{
 		Json::Value *installationInfo;
@@ -77,11 +57,6 @@ class EvohomeClient
 		std::string locationId;
 	};
 
-	std::vector<location> locations;
-	Json::Value j_fi;
-	Json::Value j_stat;
-
-
 	EvohomeClient();
 	EvohomeClient(std::string user, std::string password);
 	~EvohomeClient();
@@ -89,6 +64,10 @@ class EvohomeClient
 
 	bool login(std::string user, std::string password);
 	bool renew_login();
+	bool save_auth_to_file(std::string filename);
+	bool load_auth_from_file(std::string filename);
+
+
 	bool full_installation();
 	bool get_status(int location);
 	bool get_status(std::string locationId);
@@ -146,6 +125,32 @@ class EvohomeClient
 	bool verify_datetime(std::string datetime);
 	std::string local_to_utc(std::string local_time);
 	std::string utc_to_local(std::string utc_time);
+
+	std::vector<location> locations;
+	Json::Value j_fi;
+	Json::Value j_stat;
+
+private:
+	std::string v2uid;
+	std::string v2access_token;
+	std::string v2refresh_token;
+	time_t v2token_expiration_time;
+	std::vector<std::string> evoheader;
+	int tzoffset;
+	int lastDST;
+
+	std::string send_receive_data(std::string url, std::vector<std::string> &header);
+	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
+	std::string put_receive_data(std::string url, std::string putdata, std::vector<std::string> &header);
+	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header, std::string method);
+
+	void init();
+	bool user_account();
+
+	void get_gateways(int location);
+	void get_temperatureControlSystems(int location, int gateway);
+	void get_zones(int location, int gateway, int temperatureControlSystem);
+	void get_dhw(int location, int gateway, int temperatureControlSystem);
 };
 
 #endif
