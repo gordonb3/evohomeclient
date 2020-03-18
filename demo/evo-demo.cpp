@@ -44,6 +44,8 @@ bool verbose;
 std::string ERROR = "ERROR: ";
 std::string WARN = "WARNING: ";
 
+bool highdef = true;
+
 
 bool read_evoconfig()
 {
@@ -169,19 +171,74 @@ int main(int argc, char** argv)
 	EvohomeClient eclient = EvohomeClient();
 	if (eclient.load_auth_from_file("/tmp/evo2auth.json"))
 		std::cout << "    reusing saved connection (UK/EMEA)\n";
-	else if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
-		std::cout << "    connected (UK/EMEA)\n";
+	else
+	{
+		try
+		{
+			if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+				std::cout << "    connected (UK/EMEA)\n";
+			else
+			{
+				std::cout << "    login failed (UK/EMEA)\n";
+				exit(1);
+			}
+		}
+		catch (...)
+		{
+			std::cerr << "    client error while trying to connect (UK/EMEA)\n";
+			exit(1);
+		}
+	}
 
 	EvohomeOldClient v1client = EvohomeOldClient();
 	if (v1client.load_auth_from_file("/tmp/evo1auth.json"))
 		std::cout << "    reusing saved connection (US)\n";
-	else if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
-		std::cout << "    connected (US)\n";
+	else
+	{
+		try
+		{
+			if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
+				std::cout << "    connected (US)\n";
+			else
+			{
+				std::cout << "    login failed (US)\n";
+				highdef = false;
+			}
+		}
+		catch (...)
+		{
+			std::cerr << "    client error while trying to connect (US)\n";
+			highdef = false;
+		}
+	}
 
 // retrieve Evohome installation
 	std::cout << "retrieve Evohome installation\n";
-	eclient.full_installation();
-	v1client.full_installation();
+	try
+	{
+		if (!eclient.full_installation())
+		{
+			std::cout << "    portal returned incorrect data\n";
+			exit(1);
+		}
+	}
+	catch (...)
+	{
+		std::cerr << "    client error while trying to retrieve installation info\n";
+		exit(1);
+	}
+	if (highdef)
+	{
+		try
+		{
+			highdef = v1client.full_installation();
+		}
+		catch (...)
+		{
+			std::cout << "    client error while trying to retrieve installation info\n";
+			highdef = false;
+		}
+	}
 
 // set Evohome heating system
 	int location = 0;
@@ -214,8 +271,17 @@ int main(int argc, char** argv)
 
 // retrieve Evohome status
 	std::cout << "retrieve Evohome status\n";
-	if ( !	eclient.get_status(location) )
-		std::cout << "status fail" << "\n";
+	try
+	{
+		if ( !	eclient.get_status(location) )
+			std::cout << "status fail" << "\n";
+	}
+	catch (...)
+	{
+		std::cerr << "    client error while trying to retrieve status\n";
+		exit(1);
+	}
+
 /*
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << eclient.j_fi.toStyledString() << "\n";
@@ -234,9 +300,17 @@ int main(int argc, char** argv)
 	if ( ! eclient.read_schedules_from_file(SCHEDULE_CACHE) )
 	{
 		std::cout << "create local copy of schedules" << "\n";
-		if ( ! eclient.schedules_backup(SCHEDULE_CACHE) )
-			exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
-		eclient.read_schedules_from_file(SCHEDULE_CACHE);
+		try
+		{
+			if ( ! eclient.schedules_backup(SCHEDULE_CACHE) )
+				exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
+			eclient.read_schedules_from_file(SCHEDULE_CACHE);
+		}
+		catch (...)
+		{
+			std::cerr << "    client error while trying to retrieve schedule info\n";
+			exit(1);
+		}
 	}
 
 
@@ -288,7 +362,8 @@ int main(int argc, char** argv)
 
 		std::cout << "    " << zone["zoneId"];
 		std::cout << " => " << zone["temperature"];
-		std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].locationId, zone["zoneId"], 1);
+		if (highdef)
+			std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].locationId, zone["zoneId"], 1);
 		std::cout << " => " << zone["setpointMode"];
 		std::cout << " => " << zone["targetTemperature"];
 		std::cout << " => " << zone["until"];
@@ -309,24 +384,27 @@ int main(int argc, char** argv)
 	std::cout << (*myzone->status).toStyledString() << "\n";
 */
 
-/*
+
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << eclient.j_fi.toStyledString() << "\n";
-*/
-/*
+
+
 	std::cout << "\nDump of full status\n";
 	std::cout << eclient.j_stat.toStyledString() << "\n";
-*/
-/*
+
+
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << v1client.j_fi.toStyledString() << "\n";
-*/
 
-eclient.save_auth_to_file("/tmp/evo2auth.json");
-v1client.save_auth_to_file("/tmp/evo1auth.json");
 
+	eclient.save_auth_to_file("/tmp/evo2auth.json");
 	eclient.cleanup();
-	v1client.cleanup();
+
+	if (highdef)
+	{
+		v1client.save_auth_to_file("/tmp/evo1auth.json");
+		v1client.cleanup();
+	}
 
 	return 0;
 }

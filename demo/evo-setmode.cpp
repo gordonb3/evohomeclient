@@ -12,6 +12,7 @@
 #include <sstream>
 #include <map>
 #include <cstring>
+#include <cstdlib>
 #include "../evohomeclient/evohomeclient.h"
 
 
