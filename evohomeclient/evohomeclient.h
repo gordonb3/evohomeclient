@@ -14,6 +14,7 @@
 #include <string>
 #include "jsoncpp/json.h"
 
+
 class EvohomeClient
 {
 public:
@@ -142,7 +143,6 @@ private:
 	std::string send_receive_data(std::string url, std::vector<std::string> &header);
 	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
 	std::string put_receive_data(std::string url, std::string putdata, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header, std::string method);
 
 	void init();
 	bool user_account();

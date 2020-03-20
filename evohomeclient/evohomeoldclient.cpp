@@ -14,9 +14,11 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include "webclient.h"
+//#include "webclient.h"
 #include "evohomeoldclient.h"
 #include <stdexcept>
+
+#include "connection/EvoHTTPBridge.hpp"
 
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
@@ -53,7 +55,6 @@ EvohomeOldClient::~EvohomeOldClient()
  */
 void EvohomeOldClient::init()
 {
-	web_connection_init("old_evohome");
 }
 
 
@@ -62,51 +63,27 @@ void EvohomeOldClient::init()
  */
 void EvohomeOldClient::cleanup()
 {
-	web_connection_cleanup("old_evohome");
+	std::cout << "cleanup (v1) not implemented yet\n";
 }
 
 /*
  * Execute web query
  * Throws std::invalid_argument
  */
-std::string EvohomeOldClient::send_receive_data(std::string url, std::vector<std::string> &header)
+std::string EvohomeOldClient::send_receive_data(std::string szUrl, std::vector<std::string> &vExtraHeaders)
 {
-	return send_receive_data(url, "", header);
+	std::string szResponse;
+	std::string szHost = EVOHOME_HOST;
+	EvoHTTPBridge::GET(szHost.append(szUrl), vExtraHeaders, szResponse, -1);
+	return szResponse;
 }
 
-std::string EvohomeOldClient::send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header)
+std::string EvohomeOldClient::send_receive_data(std::string szUrl, std::string szPostdata, std::vector<std::string> &vExtraHeaders)
 {
-	std::stringstream ss_url;
-	ss_url << EVOHOME_HOST << url;
-	std::string s_res;
-	try
-	{
-		s_res = web_send_receive_data("old_evohome", ss_url.str(), postdata, header);
-	}
-	catch (...)
-	{
-		throw;
-	}
-
-	if (s_res.find("<title>") != std::string::npos) // received an HTML page
-	{
-		std::stringstream ss_err;
-		ss_err << "Bad return: ";
-		int i = s_res.find("<title>");
-		char* html = &s_res[i];
-		i = 7;
-		char c = html[i];
-		while (c != '<')
-		{
-			ss_err << c;
-			i++;
-			c = html[i];
-		}
-		throw std::invalid_argument( ss_err.str() );
-	}
-
-	v1lastwebcall = time(NULL);
-	return s_res;
+	std::string szResponse;
+	std::string szHost = EVOHOME_HOST;
+	EvoHTTPBridge::POST(szHost.append(szUrl), szPostdata, vExtraHeaders, szResponse, -1);
+	return szResponse;
 }
 
 

@@ -10,7 +10,7 @@
 #include <cstring>
 #include <string>
 #include <ctime>
-#include "webclient.h"
+//#include "webclient.h"
 #include "evohomeclient.h"
 #include "jsoncpp/json.h"
 #include <iostream>
@@ -18,6 +18,8 @@
 #include <sstream>
 #include <cstdlib>
 #include <stdexcept>
+
+#include "connection/EvoHTTPBridge.hpp"
 
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
@@ -81,7 +83,6 @@ void EvohomeClient::init()
 {
 	tzoffset = -1;
 	lastDST = -1;
-	web_connection_init("evohome");
 }
 
 
@@ -90,7 +91,7 @@ void EvohomeClient::init()
  */
 void EvohomeClient::cleanup()
 {
-	web_connection_cleanup("evohome");
+	std::cout << "cleanup (v2) not implemented yet\n";
 }
 
 
@@ -98,48 +99,26 @@ void EvohomeClient::cleanup()
  * Execute web query
  * Throws std::invalid_argument
  */
-std::string EvohomeClient::send_receive_data(std::string url, std::vector<std::string> &header)
+std::string EvohomeClient::send_receive_data(std::string szUrl, std::vector<std::string> &vExtraHeaders)
 {
-	return send_receive_data(url, "", header);
+	std::string szResponse;
+	std::string szHost = EVOHOME_HOST;
+	EvoHTTPBridge::GET(szHost.append(szUrl), vExtraHeaders, szResponse, -1);
+	return szResponse;
 }
-std::string EvohomeClient::send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header)
+std::string EvohomeClient::send_receive_data(std::string szUrl, std::string szPostdata, std::vector<std::string> &vExtraHeaders)
 {
-	return send_receive_data(url, postdata, header, "POST");
+	std::string szResponse;
+	std::string szHost = EVOHOME_HOST;
+	EvoHTTPBridge::POST(szHost.append(szUrl), szPostdata, vExtraHeaders, szResponse, -1);
+	return szResponse;
 }
-std::string EvohomeClient::put_receive_data(std::string url, std::string putdata, std::vector<std::string> &header)
+std::string EvohomeClient::put_receive_data(std::string szUrl, std::string szPutdata, std::vector<std::string> &vExtraHeaders)
 {
-	return send_receive_data(url, putdata, header, "PUT");
-}
-std::string EvohomeClient::send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header, std::string method)
-{
-	std::stringstream ss_url;
-	ss_url << EVOHOME_HOST << url;
-	std::string s_res;
-	try
-	{
-		s_res = web_send_receive_data("evohome", ss_url.str(), postdata, header, method);
-	}
-	catch (...)
-	{
-		throw;
-	}
-	if (s_res.find("<title>") != std::string::npos) // got an HTML page
-	{
-		std::stringstream ss_err;
-		ss_err << "Bad return: ";
-		int i = s_res.find("<title>");
-		char* html = &s_res[i];
-		i = 7;
-		char c = html[i];
-		while (c != '<')
-		{
-			ss_err << c;
-			i++;
-			c = html[i];
-		}
-		throw std::invalid_argument( ss_err.str() );
-	}
-	return s_res;
+	std::string szResponse;
+	std::string szHost = EVOHOME_HOST;
+	EvoHTTPBridge::POST(szHost.append(szUrl), szPutdata, vExtraHeaders, szResponse, -1);
+	return szResponse;
 }
 
 
@@ -167,8 +146,8 @@ bool EvohomeClient::login(std::string user, std::string password)
 	pdata << "&Pragma=no-cache";
 	pdata << "&grant_type=password";
 	pdata << "&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous%20EMEA-V1-Get-Current-User-Account";
-	pdata << "&Username=" << urlencode(user);
-	pdata << "&Password=" << urlencode(password);
+	pdata << "&Username=" << EvoHTTPBridge::URLEncode(user);
+	pdata << "&Password=" << EvoHTTPBridge::URLEncode(password);
 	pdata << "&Connection=Keep-Alive";
 
 	std::string s_res;
@@ -367,7 +346,6 @@ bool EvohomeClient::load_auth_from_file(std::string filename)
 	bool got_uid;
 	try
 	{
-std::cout << "ge user ID\n";
 		got_uid = user_account();
 	}
 	catch (...)
