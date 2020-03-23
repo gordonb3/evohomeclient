@@ -14,7 +14,6 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-//#include "webclient.h"
 #include "evohomeoldclient.h"
 #include <stdexcept>
 
@@ -66,24 +65,10 @@ void EvohomeOldClient::cleanup()
 	std::cout << "cleanup (v1) not implemented yet\n";
 }
 
-/*
- * Execute web query
- * Throws std::invalid_argument
- */
-std::string EvohomeOldClient::send_receive_data(std::string szUrl, std::vector<std::string> &vExtraHeaders)
-{
-	std::string szResponse;
-	std::string szHost = EVOHOME_HOST;
-	EvoHTTPBridge::GET(szHost.append(szUrl), vExtraHeaders, szResponse, -1);
-	return szResponse;
-}
 
-std::string EvohomeOldClient::send_receive_data(std::string szUrl, std::string szPostdata, std::vector<std::string> &vExtraHeaders)
+std::string EvohomeOldClient::get_last_error()
 {
-	std::string szResponse;
-	std::string szHost = EVOHOME_HOST;
-	EvoHTTPBridge::POST(szHost.append(szUrl), szPostdata, vExtraHeaders, szResponse, -1);
-	return szResponse;
+	return m_szLastError;
 }
 
 
@@ -96,71 +81,67 @@ std::string EvohomeOldClient::send_receive_data(std::string szUrl, std::string s
 
 /* 
  * login to evohome web server
- * Throws std::invalid_argument
  */
 bool EvohomeOldClient::login(std::string user, std::string password)
 {
-	std::vector<std::string> lheader;
-	lheader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	lheader.push_back("content-type: application/json");
+	std::vector<std::string> vLoginHeader;
+	vLoginHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	vLoginHeader.push_back("content-type: application/json");
 
-	std::stringstream pdata;
-	pdata << "{'Username': '" << user << "', 'Password': '" << password << "'";
-	pdata << ", 'ApplicationId': '91db1612-73fd-4500-91b2-e63b069b185c'}";
-	std::string s_res;
-	try
-	{
-		s_res = send_receive_data("/WebAPI/api/Session", pdata.str(), lheader);
-	}
-	catch (...)
-	{
-		throw;
-	}
+	std::string szPostdata = "{'Username': '";
+	szPostdata.append(user);
+	szPostdata.append("', 'Password': '");
+	szPostdata.append(EvoHTTPBridge::URLEncode(password));
+	szPostdata.append("', 'ApplicationId': '91db1612-73fd-4500-91b2-e63b069b185c'}");
 
-	if (s_res[0] == '[') // received unnamed array as reply
+	std::string szUrl = EVOHOME_HOST"/WebAPI/api/Session";
+	std::string szResponse;
+	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
+
+	if (szResponse[0] == '[') // received unnamed array as reply
 	{
-		s_res[0] = ' ';
-		size_t len = s_res.size();
+		szResponse[0] = ' ';
+		size_t len = szResponse.size();
 		len--;
-		s_res[len] = ' ';
+		szResponse[len] = ' ';
 	}
 
-	Json::Value j_login;
+	Json::Value jLogin;
 	Json::Reader jReader;
-	if (!jReader.parse(s_res.c_str(), j_login))
+	if (!jReader.parse(szResponse.c_str(), jLogin))
 	{
-		throw std::invalid_argument( "Failed to parse server response as JSON" );
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
 	}
 
 	std::string szError = "";
-	if (j_login.isMember("error"))
-		szError = j_login["error"].asString();
-	if (j_login.isMember("message"))
-		szError = j_login["message"].asString();
+	if (jLogin.isMember("error"))
+		szError = jLogin["error"].asString();
+	if (jLogin.isMember("message"))
+		szError = jLogin["message"].asString();
 	if (!szError.empty())
 	{
 		std::stringstream ss_err;
 		ss_err << "Login to Evohome server failed with message: " << szError;
-		throw std::invalid_argument( ss_err.str() );
+		m_szLastError = ss_err.str();
 		return false;
 	}
 
-	if (!j_login.isMember("sessionId") || !j_login.isMember("userInfo") || !j_login["userInfo"].isObject() || !j_login["userInfo"].isMember("userID"))
+	if (!jLogin.isMember("sessionId") || !jLogin.isMember("userInfo") || !jLogin["userInfo"].isObject() || !jLogin["userInfo"].isMember("userID"))
 	{
-		throw std::invalid_argument( "Login to Evohome server did not return required data" );
+		m_szLastError = "Login to Evohome server did not return required data";
 		return false;
 	}
 
-	v1sessionId = j_login["sessionId"].asString();
+	m_szSessionId = jLogin["sessionId"].asString();
 	std::stringstream atoken;
-	atoken << "sessionId: " << v1sessionId;
-	v1uid = j_login["userInfo"]["userID"].asString();
+	atoken << "sessionId: " << m_szSessionId;
+	m_szUserId = jLogin["userInfo"]["userID"].asString();
 
-	evoheader.clear();
-	evoheader.push_back(atoken.str());
-	evoheader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
-	evoheader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	m_vEvoHeader.clear();
+	m_vEvoHeader.push_back(atoken.str());
+	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
+	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
 	return true;
 }
@@ -169,18 +150,18 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 /*
  * Save authorization key to a backup file
  */
-bool EvohomeOldClient::save_auth_to_file(std::string filename)
+bool EvohomeOldClient::save_auth_to_file(std::string szFilename)
 {
-	std::ofstream myfile (filename.c_str(), std::ofstream::trunc);
+	std::ofstream myfile (szFilename.c_str(), std::ofstream::trunc);
 	if ( myfile.is_open() )
 	{
-		Json::Value j_auth;
+		Json::Value jAuth;
 
-		j_auth["session_id"] = v1sessionId;
-		j_auth["last_use"] = static_cast<int>(v1lastwebcall);
-		j_auth["user_id"] = v1uid;
+		jAuth["session_id"] = m_szSessionId;
+		jAuth["last_use"] = static_cast<int>(m_tLastWebCall);
+		jAuth["user_id"] = m_szUserId;
 
-		myfile << j_auth.toStyledString() << "\n";
+		myfile << jAuth.toStyledString() << "\n";
 		myfile.close();
 		return true;
 	}
@@ -191,10 +172,10 @@ bool EvohomeOldClient::save_auth_to_file(std::string filename)
 /*
  * Load authorization key from a backup file
  */
-bool EvohomeOldClient::load_auth_from_file(std::string filename)
+bool EvohomeOldClient::load_auth_from_file(std::string szFilename)
 {
 	std::stringstream ss;
-	std::ifstream myfile (filename.c_str());
+	std::ifstream myfile (szFilename.c_str());
 	if ( myfile.is_open() )
 	{
 		std::string line;
@@ -204,26 +185,26 @@ bool EvohomeOldClient::load_auth_from_file(std::string filename)
 		}
 		myfile.close();
 	}
-	Json::Value j_auth;
+	Json::Value jAuth;
 	Json::Reader jReader;
-	if (!jReader.parse(ss.str().c_str(), j_auth))
+	if (!jReader.parse(ss.str().c_str(), jAuth))
 		return false;
 
-	v1sessionId = j_auth["session_id"].asString();
-	v1lastwebcall =	static_cast<time_t>(atoi(j_auth["last_use"].asString().c_str()));
-	v1uid = j_auth["user_id"].asString();
+	m_szSessionId = jAuth["session_id"].asString();
+	m_tLastWebCall =	static_cast<time_t>(atoi(jAuth["last_use"].asString().c_str()));
+	m_szUserId = jAuth["user_id"].asString();
 
 
-	if ((time(NULL) - v1lastwebcall) > SESSION_EXPIRATION_TIME)
+	if ((time(NULL) - m_tLastWebCall) > SESSION_EXPIRATION_TIME)
 		return false;
 
 	std::stringstream atoken;
-	atoken << "sessionId: " << v1sessionId;
+	atoken << "sessionId: " << m_szSessionId;
 
-	evoheader.clear();
-	evoheader.push_back(atoken.str());
-	evoheader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
-	evoheader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
+	m_vEvoHeader.clear();
+	m_vEvoHeader.push_back(atoken.str());
+	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
+	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
 	return true;
 }
@@ -237,38 +218,43 @@ bool EvohomeOldClient::load_auth_from_file(std::string filename)
 
 /* 
  * Retrieve evohome installation info
- * Throws std::invalid_argument
  */
 bool EvohomeOldClient::full_installation()
 {
-	locations.clear();
-	std::stringstream url;
+	m_mLocations.clear();
 
-	url << "/WebAPI/api/locations/?userId=" << v1uid << "&allData=True";
+	std::string szUrl = EVOHOME_HOST"/WebAPI/api/locations/?userId=";
+	szUrl.append(m_szUserId);
+	szUrl.append("&allData=True");
+	std::string szResponse;
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
-	// evohome 'old' interface does not correctly format the json output
-	std::stringstream ss_jdata;
-	try
+	if (szResponse[0] == '[')
 	{
-		ss_jdata << "{\"locations\": " << send_receive_data(url.str(), evoheader) << "}";
+		// evohome old API returns an unnamed json array which is not accepted by our parser
+		szResponse.insert(0, "{\"locations\": ");
+		szResponse.append("}");
 	}
-	catch (...)
-	{
-		throw;
-	}
+
 	Json::Reader jReader;
-	if (!jReader.parse(ss_jdata.str(), j_fi))
+	if (!jReader.parse(szResponse, m_jFullInstallation))
 	{
-		throw std::invalid_argument( "Failed to parse server response as JSON" );
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
 	}
 
-	if (!j_fi["locations"].isArray())
+	if (!m_jFullInstallation["locations"].isArray())
 		return false;
 
-	size_t l = j_fi["locations"].size();
-	for (size_t i = 0; i < l; ++i)
-		locations[i].installationInfo = &j_fi["locations"][(int)(i)];
+	int l = static_cast<int>(m_jFullInstallation["locations"].size());
+	for (int i = 0; i < l; ++i)
+	{
+		m_mLocations[i].installationInfo = &m_jFullInstallation["locations"][i];
+		if ((*m_mLocations[i].installationInfo).isMember("locationID"))
+		{
+			m_mLocations[i].szLocationId = (*m_mLocations[i].installationInfo)["locationID"].asString();
+		}
+	}
 
 	return true;
 }
@@ -276,30 +262,17 @@ bool EvohomeOldClient::full_installation()
 
 /* 
  * Extract a zone's temperature from system status
- * Throws std::invalid_argument from full_installation()
  */
 std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
 {
-	if (locations.size() == 0)
-	{
-		bool got_fi;
-		try
-		{
-			got_fi = full_installation();
-		}
-		catch (...)
-		{
-			throw;
-		}
-		if (!got_fi)
-			return "";
-	}
+	if ((m_mLocations.size() == 0) && (!full_installation()))
+		return "";
 
 	int multiplier = (decimals >= 2) ? 100:10;
 
-	for (size_t iloc = 0; iloc < locations.size(); iloc++)
+	for (size_t iloc = 0; iloc < m_mLocations.size(); iloc++)
 	{
-		Json::Value *j_loc = locations[iloc].installationInfo;
+		Json::Value *j_loc = m_mLocations[iloc].installationInfo;
 		if (!(*j_loc).isMember("devices") || !(*j_loc)["devices"].isArray())
 			continue;
 

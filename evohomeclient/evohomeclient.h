@@ -18,7 +18,7 @@
 class EvohomeClient
 {
 public:
-	struct zone
+	typedef struct zone
 	{
 		Json::Value *installationInfo;
 		Json::Value *status;
@@ -27,9 +27,9 @@ public:
 		std::string systemId;
 		std::string zoneId;
 		Json::Value schedule;
-	};
+	} _sZone;
 
-	struct temperatureControlSystem
+	typedef struct temperatureControlSystem
 	{
 		std::vector<zone> zones;
 		std::vector<zone> dhw;
@@ -38,35 +38,34 @@ public:
 		std::string locationId;
 		std::string gatewayId;
 		std::string systemId;
-	};
+	} _sTemperatureControlSystem;
 
-	struct gateway
+	typedef struct gateway
 	{
 		std::vector<temperatureControlSystem> temperatureControlSystems;
 		Json::Value *installationInfo;
 		Json::Value *status;
 		std::string locationId;
 		std::string gatewayId;
-	};
+	} _sGateway;
 
-
-	struct location
+	typedef struct location
 	{
 		std::vector<gateway> gateways;
 		Json::Value *installationInfo;
 		Json::Value *status;
 		std::string locationId;
-	};
+	} _sLocation;
 
 	EvohomeClient();
-	EvohomeClient(std::string user, std::string password);
+	EvohomeClient(const std::string &szUser, const std::string szPassword);
 	~EvohomeClient();
 	void cleanup();
 
-	bool login(std::string user, std::string password);
+	bool login(const std::string &szUser, const std::string szPassword);
 	bool renew_login();
-	bool save_auth_to_file(std::string filename);
-	bool load_auth_from_file(std::string filename);
+	bool save_auth_to_file(std::string szFilename);
+	bool load_auth_from_file(std::string szFilename);
 
 
 	bool full_installation();
@@ -83,9 +82,9 @@ public:
 	bool has_dhw(temperatureControlSystem *tcs);
 	bool is_single_heating_system();
 
-	bool schedules_backup(std::string filename);
-	bool schedules_restore(std::string filename);
-	bool read_schedules_from_file(std::string filename);
+	bool schedules_backup(std::string szFilename);
+	bool schedules_restore(std::string szFilename);
+	bool read_schedules_from_file(std::string szFilename);
 	bool get_dhw_schedule(std::string dhwId);
 	bool get_zone_schedule(std::string zoneId);
 	bool get_zone_schedule(std::string zoneId, std::string zoneType);
@@ -128,17 +127,21 @@ public:
 	std::string utc_to_local(std::string utc_time);
 
 	std::vector<location> locations;
-	Json::Value j_fi;
-	Json::Value j_stat;
+	Json::Value m_jFullInstallation;
+	Json::Value m_jFullStatus;
+
+	std::string get_last_error();
 
 private:
-	std::string v2uid;
-	std::string v2access_token;
-	std::string v2refresh_token;
-	time_t v2token_expiration_time;
-	std::vector<std::string> evoheader;
-	int tzoffset;
+	std::string m_szUserId;
+	std::string m_szAccessToken;
+	std::string m_szRefreshToken;
+	time_t m_tTokenExpirationTime;
+	std::vector<std::string> m_vEvoHeader;
+	int m_tzoffset;
 	int lastDST;
+
+	std::string m_szLastError;
 
 	std::string send_receive_data(std::string url, std::vector<std::string> &header);
 	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);

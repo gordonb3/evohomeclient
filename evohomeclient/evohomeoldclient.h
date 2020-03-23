@@ -21,7 +21,7 @@ class EvohomeOldClient
 public:
 	struct location
 	{
-		std::string locationId;
+		std::string szLocationId;
 		Json::Value *installationInfo;
 		Json::Value *status;
 	};
@@ -32,25 +32,26 @@ public:
 	void cleanup();
 
 	bool login(std::string user, std::string password);
-	bool save_auth_to_file(std::string filename);
-	bool load_auth_from_file(std::string filename);
+	bool save_auth_to_file(std::string szFilename);
+	bool load_auth_from_file(std::string szFilename);
 
 	bool full_installation();
 	std::string get_zone_temperature(std::string locationId, std::string zoneId, int decimals);
 
-	Json::Value j_fi;
-	std::map<int, location> locations;
+	Json::Value m_jFullInstallation;
+	std::map<int, location> m_mLocations;
+
+	std::string get_last_error();
 
 private:
 	void init();
 
-	std::string send_receive_data(std::string url, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
+	std::string m_szSessionId;
+	time_t m_tLastWebCall;
+	std::string m_szUserId;
+	std::vector<std::string> m_vEvoHeader;
 
-	std::string v1sessionId;
-	time_t v1lastwebcall;
-	std::string v1uid;
-	std::vector<std::string> evoheader;
+	std::string m_szLastError;
 };
 
 #endif
