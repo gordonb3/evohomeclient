@@ -143,10 +143,6 @@ private:
 
 	std::string m_szLastError;
 
-	std::string send_receive_data(std::string url, std::vector<std::string> &header);
-	std::string send_receive_data(std::string url, std::string postdata, std::vector<std::string> &header);
-	std::string put_receive_data(std::string url, std::string putdata, std::vector<std::string> &header);
-
 	void init();
 	bool user_account();
 
