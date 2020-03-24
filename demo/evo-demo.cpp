@@ -382,7 +382,6 @@ int main(int argc, char** argv)
 	std::cout << (*myzone->installationInfo).toStyledString() << "\n";
 	std::cout << "\nDump of statusinfo for zone" << lastzone << "\n";
 	std::cout << (*myzone->status).toStyledString() << "\n";
-*/
 
 
 	std::cout << "\nDump of full installationinfo\n";
@@ -395,6 +394,7 @@ int main(int argc, char** argv)
 
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << v1client.j_fi.toStyledString() << "\n";
+*/
 
 
 	eclient.save_auth_to_file("/tmp/evo2auth.json");

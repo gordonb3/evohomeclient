@@ -58,11 +58,11 @@ public:
 	} _sLocation;
 
 	EvohomeClient();
-	EvohomeClient(const std::string &szUser, const std::string szPassword);
+	EvohomeClient(const std::string &szUser, const std::string &szPassword);
 	~EvohomeClient();
 	void cleanup();
 
-	bool login(const std::string &szUser, const std::string szPassword);
+	bool login(const std::string &szUser, const std::string &szPassword);
 	bool renew_login();
 	bool save_auth_to_file(std::string szFilename);
 	bool load_auth_from_file(std::string szFilename);

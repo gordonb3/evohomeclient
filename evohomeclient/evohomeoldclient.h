@@ -19,12 +19,12 @@
 class EvohomeOldClient
 {
 public:
-	struct location
+	typedef struct location
 	{
 		std::string szLocationId;
 		Json::Value *installationInfo;
 		Json::Value *status;
-	};
+	} _sLocation;
 
 	EvohomeOldClient();
 	EvohomeOldClient(std::string user, std::string password);
@@ -39,7 +39,7 @@ public:
 	std::string get_zone_temperature(std::string locationId, std::string zoneId, int decimals);
 
 	Json::Value m_jFullInstallation;
-	std::map<int, location> m_mLocations;
+	std::vector<_sLocation> m_vLocations;
 
 	std::string get_last_error();
 

@@ -44,7 +44,7 @@ EvohomeClient::EvohomeClient()
 {
 	init();
 }
-EvohomeClient::EvohomeClient(const std::string &szUser, const std::string szPassword)
+EvohomeClient::EvohomeClient(const std::string &szUser, const std::string &szPassword)
 {
 	init();
 	bool login_success;
@@ -101,7 +101,7 @@ std::string EvohomeClient::get_last_error()
 /* 
  * Login to the evohome portal
  */
-bool EvohomeClient::login(const std::string &szUser, const std::string szPassword)
+bool EvohomeClient::login(const std::string &szUser, const std::string &szPassword)
 {
 	std::vector<std::string> vLoginHeader;
 	vLoginHeader.push_back("Authorization: Basic YjAxM2FhMjYtOTcyNC00ZGJkLTg4OTctMDQ4YjlhYWRhMjQ5OnRlc3Q=");
@@ -119,9 +119,16 @@ bool EvohomeClient::login(const std::string &szUser, const std::string szPasswor
 	pdata << "&Password=" << EvoHTTPBridge::URLEncode(szPassword);
 	pdata << "&Connection=Keep-Alive";
 
+	std::string szPostdata = "installationInfo-Type=application%2Fx-www-form-urlencoded;charset%3Dutf-8&Host=rs.alarmnet.com%2F";
+	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive");
+	szPostdata.append("&grant_type=password&Username=");
+	szPostdata.append(EvoHTTPBridge::URLEncode(szUser));
+	szPostdata.append("&Password=");
+	szPostdata.append(EvoHTTPBridge::URLEncode(szPassword));
+
 	std::string szResponse;
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
-	EvoHTTPBridge::SafePOST(szUrl, pdata.str(), vLoginHeader, szResponse, -1);
+	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
 
 	if (szResponse[0] == '[') // got unnamed array as reply
 	{
@@ -131,22 +138,23 @@ bool EvohomeClient::login(const std::string &szUser, const std::string szPasswor
 		szResponse[len] = ' ';
 	}
 
-	Json::Value j_login;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), j_login))
+	Json::Value jLogin;
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
 		return false;
 
 	std::string szError = "";
-	if (j_login.isMember("error"))
-		szError = j_login["error"].asString();
-	if (j_login.isMember("message"))
-		szError = j_login["message"].asString();
+	if (jLogin.isMember("error"))
+		szError = jLogin["error"].asString();
+	if (jLogin.isMember("message"))
+		szError = jLogin["message"].asString();
 	if (!szError.empty())
 		return false;
 
-	m_szAccessToken = j_login["access_token"].asString();
-	m_szRefreshToken = j_login["refresh_token"].asString();
-	m_tTokenExpirationTime = time(NULL) + atoi(j_login["expires_in"].asString().c_str());
+	m_szAccessToken = jLogin["access_token"].asString();
+	m_szRefreshToken = jLogin["refresh_token"].asString();
+	m_tTokenExpirationTime = time(NULL) + atoi(jLogin["expires_in"].asString().c_str());
 	std::stringstream atoken;
 	atoken << "Authorization: bearer " << m_szAccessToken;
 
@@ -181,9 +189,16 @@ bool EvohomeClient::renew_login()
 	pdata << "&refresh_token=" << m_szRefreshToken;
 	pdata << "&Connection=Keep-Alive";
 
+	std::string szPostdata = "installationInfo-Type=application%2Fx-www-form-urlencoded;charset%3Dutf-8&Host=rs.alarmnet.com%2F";
+	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive");
+
+	szPostdata.append("&grant_type=refresh_token&refresh_token=");
+	szPostdata.append(m_szRefreshToken);
+
+
 	std::string szResponse;
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
-	EvoHTTPBridge::SafePOST(szUrl, pdata.str(), vLoginHeader, szResponse, -1);
+	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
 
 	if (szResponse[0] == '[') // got unnamed array as reply
 	{
@@ -193,22 +208,23 @@ bool EvohomeClient::renew_login()
 		szResponse[len] = ' ';
 	}
 
-	Json::Value j_login;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), j_login))
+	Json::Value jLogin;
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
 		return false;
 
 	std::string szError = "";
-	if (j_login.isMember("error"))
-		szError = j_login["error"].asString();
-	if (j_login.isMember("message"))
-		szError = j_login["message"].asString();
+	if (jLogin.isMember("error"))
+		szError = jLogin["error"].asString();
+	if (jLogin.isMember("message"))
+		szError = jLogin["message"].asString();
 	if (!szError.empty())
 		return false;
 
-	m_szAccessToken = j_login["access_token"].asString();
-	m_szRefreshToken = j_login["refresh_token"].asString();
-	m_tTokenExpirationTime = time(NULL) + atoi(j_login["expires_in"].asString().c_str());
+	m_szAccessToken = jLogin["access_token"].asString();
+	m_szRefreshToken = jLogin["refresh_token"].asString();
+	m_tTokenExpirationTime = time(NULL) + atoi(jLogin["expires_in"].asString().c_str());
 	std::stringstream atoken;
 	atoken << "Authorization: bearer " << m_szAccessToken;
 
@@ -250,20 +266,22 @@ bool EvohomeClient::save_auth_to_file(std::string szFilename)
  */
 bool EvohomeClient::load_auth_from_file(std::string szFilename)
 {
-	std::stringstream ss;
+	std::string szFileContent;
 	std::ifstream myfile (szFilename.c_str());
 	if ( myfile.is_open() )
 	{
 		std::string line;
 		while ( getline (myfile,line) )
 		{
-			ss << line << '\n';
+			szFileContent.append(line);
+			szFileContent.append("\n");
 		}
 		myfile.close();
 	}
 	Json::Value jAuth;
-	Json::Reader jReader;
-	if (!jReader.parse(ss.str().c_str(), jAuth))
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szFileContent.c_str(), szFileContent.c_str() + szFileContent.size(), &jAuth, nullptr))
 		return false;
 
 	m_szAccessToken = jAuth["access_token"].asString();
@@ -303,11 +321,12 @@ bool EvohomeClient::user_account()
 		len--;
 		szResponse[len] = ' ';
 	}
-	Json::Value jUserAccount;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), jUserAccount) || !jUserAccount.isMember("userId"))
-		return false;
 
+	Json::Value jUserAccount;
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jUserAccount, nullptr) || !jUserAccount.isMember("userId"))
+		return false;
 
 	m_szUserId = jUserAccount["userId"].asString();
 	return true;
@@ -426,9 +445,10 @@ bool EvohomeClient::full_installation()
 	szResponse.insert(0, "{\"locations\": ");
 	szResponse.append("}");
 
-	Json::Reader jReader;
 	m_jFullInstallation.clear();
-	if (!jReader.parse(szResponse, m_jFullInstallation) || !m_jFullInstallation["locations"].isArray())
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &m_jFullInstallation, nullptr) || !m_jFullInstallation["locations"].isArray())
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -482,9 +502,10 @@ bool EvohomeClient::get_status(int location)
 	std::string szResponse;
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
-	Json::Reader jReader;
 	m_jFullStatus.clear();
-	if (!jReader.parse(szResponse, m_jFullStatus))
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &m_jFullStatus, nullptr))
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -683,14 +704,15 @@ std::string EvohomeClient::request_next_switchpoint(std::string zoneId)
 		szResponse[len] = ' ';
 	}
 
-	Json::Value j_sp;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), j_sp) || !j_sp.isMember("time"))
+	Json::Value jSwitchPoint;
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jSwitchPoint, nullptr) || !jSwitchPoint.isMember("time"))
 		return "";
 
-	std::stringstream ss;
-	ss << j_sp["time"].asString() << 'Z';
-	return ss.str();
+	std::string szSwitchpoint = jSwitchPoint["time"].asString();
+	szSwitchpoint.append("Z");
+	return szSwitchpoint;
 }
 
 
@@ -720,8 +742,11 @@ bool EvohomeClient::get_zone_schedule(std::string zoneId, std::string zoneType)
 	EvohomeClient::zone* zone = get_zone_by_ID(zoneId);
 	if (zone == NULL)
 		return false;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), zone->schedule))
+
+
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &zone->schedule, nullptr))
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -995,9 +1020,10 @@ bool EvohomeClient::schedules_backup(std::string szFilename)
 						if (!szResponse.find("\"id\""))
 							continue;
 
-						Json::Reader jReader;
 						Json::Value j_week;
-						if (!jReader.parse(szResponse, j_week))
+						Json::CharReaderBuilder jBuilder;
+						std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+						if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &j_week, nullptr))
 							continue;
 
 						Json::Value j_zonesched;
@@ -1025,9 +1051,10 @@ bool EvohomeClient::schedules_backup(std::string szFilename)
 						if ( ! szResponse.find("\"id\""))
 							return false;
 
-						Json::Reader jReader;
 						Json::Value j_week;
-						if (!jReader.parse(szResponse, j_week))
+						Json::CharReaderBuilder jBuilder;
+						std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+						if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &j_week, nullptr))
 							continue;
 
 						Json::Value j_dhwsched;
@@ -1073,9 +1100,10 @@ bool EvohomeClient::read_schedules_from_file(std::string szFilename)
 	if (s_fcontent == "")
 		return false;
 
-	Json::Reader jReader;
 	Json::Value j_sched;
-	if (!jReader.parse(s_fcontent, j_sched))
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(s_fcontent.c_str(), s_fcontent.c_str() + s_fcontent.size(), &j_sched, nullptr))
 		return false;
 
 

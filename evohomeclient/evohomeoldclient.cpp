@@ -107,8 +107,9 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 	}
 
 	Json::Value jLogin;
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse.c_str(), jLogin))
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -174,24 +175,26 @@ bool EvohomeOldClient::save_auth_to_file(std::string szFilename)
  */
 bool EvohomeOldClient::load_auth_from_file(std::string szFilename)
 {
-	std::stringstream ss;
+	std::string szFileContent;
 	std::ifstream myfile (szFilename.c_str());
 	if ( myfile.is_open() )
 	{
 		std::string line;
 		while ( getline (myfile,line) )
 		{
-			ss << line << '\n';
+			szFileContent.append(line);
+			szFileContent.append("\n");
 		}
 		myfile.close();
 	}
 	Json::Value jAuth;
-	Json::Reader jReader;
-	if (!jReader.parse(ss.str().c_str(), jAuth))
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szFileContent.c_str(), szFileContent.c_str() + szFileContent.size(), &jAuth, nullptr))
 		return false;
 
 	m_szSessionId = jAuth["session_id"].asString();
-	m_tLastWebCall =	static_cast<time_t>(atoi(jAuth["last_use"].asString().c_str()));
+	m_tLastWebCall = static_cast<time_t>(atoi(jAuth["last_use"].asString().c_str()));
 	m_szUserId = jAuth["user_id"].asString();
 
 
@@ -221,7 +224,7 @@ bool EvohomeOldClient::load_auth_from_file(std::string szFilename)
  */
 bool EvohomeOldClient::full_installation()
 {
-	m_mLocations.clear();
+	std::vector<_sLocation>().swap(m_vLocations);
 
 	std::string szUrl = EVOHOME_HOST"/WebAPI/api/locations/?userId=";
 	szUrl.append(m_szUserId);
@@ -229,15 +232,14 @@ bool EvohomeOldClient::full_installation()
 	std::string szResponse;
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
-	if (szResponse[0] == '[')
-	{
-		// evohome old API returns an unnamed json array which is not accepted by our parser
-		szResponse.insert(0, "{\"locations\": ");
-		szResponse.append("}");
-	}
+	// evohome old API returns an unnamed json array which is not accepted by our parser
+	szResponse.insert(0, "{\"locations\": ");
+	szResponse.append("}");
 
-	Json::Reader jReader;
-	if (!jReader.parse(szResponse, m_jFullInstallation))
+	m_jFullInstallation.clear();
+	Json::CharReaderBuilder jBuilder;
+	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
+	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &m_jFullInstallation, nullptr) || !m_jFullInstallation["locations"].isArray())
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -249,10 +251,13 @@ bool EvohomeOldClient::full_installation()
 	int l = static_cast<int>(m_jFullInstallation["locations"].size());
 	for (int i = 0; i < l; ++i)
 	{
-		m_mLocations[i].installationInfo = &m_jFullInstallation["locations"][i];
-		if ((*m_mLocations[i].installationInfo).isMember("locationID"))
+		_sLocation newloc = _sLocation();
+		m_vLocations.push_back(newloc);
+		m_vLocations[i].installationInfo = &m_jFullInstallation["locations"][i];
+		if ((*m_vLocations[i].installationInfo).isMember("locationID"))
 		{
-			m_mLocations[i].szLocationId = (*m_mLocations[i].installationInfo)["locationID"].asString();
+			m_vLocations[i].szLocationId = (*m_vLocations[i].installationInfo)["locationIDs"].asString();
+std::cout << "found v1 locationdID: " << m_vLocations[i].szLocationId << "\n";
 		}
 	}
 
@@ -265,14 +270,14 @@ bool EvohomeOldClient::full_installation()
  */
 std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
 {
-	if ((m_mLocations.size() == 0) && (!full_installation()))
+	if ((m_vLocations.size() == 0) && (!full_installation()))
 		return "";
 
 	int multiplier = (decimals >= 2) ? 100:10;
 
-	for (size_t iloc = 0; iloc < m_mLocations.size(); iloc++)
+	for (size_t iloc = 0; iloc < m_vLocations.size(); iloc++)
 	{
-		Json::Value *j_loc = m_mLocations[iloc].installationInfo;
+		Json::Value *j_loc = m_vLocations[iloc].installationInfo;
 		if (!(*j_loc).isMember("devices") || !(*j_loc)["devices"].isArray())
 			continue;
 
