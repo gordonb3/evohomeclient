@@ -97,7 +97,7 @@ void exit_error(std::string message)
 }
 
 
-EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(EvohomeClient &eclient)
+evohome::device::temperatureControlSystem *select_temperatureControlSystem(EvohomeClient2 &eclient)
 {
 	int location = 0;
 	int gateway = 0;
@@ -144,15 +144,15 @@ EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(Evohome
 /*
  * Create an associative array with the zone information we need
  */
-std::map<std::string,std::string> evo_get_zone_data(EvohomeClient::zone *zone)
+std::map<std::string,std::string> evo_get_zone_data(evohome::device::zone*zone)
 {
 	map<std::string,std::string> ret;
-	ret["zoneId"] = (*zone->status)["zoneId"].asString();
-	ret["name"] = (*zone->status)["name"].asString();
-	ret["temperature"] = (*zone->status)["temperatureStatus"]["temperature"].asString();
-	ret["setpointMode"] = (*zone->status)["heatSetpointStatus"]["setpointMode"].asString();
-	ret["targetTemperature"] = (*zone->status)["heatSetpointStatus"]["targetTemperature"].asString();
-	ret["until"] = (*zone->status)["heatSetpointStatus"]["until"].asString();
+	ret["zoneId"] = (*zone->jStatus)["zoneId"].asString();
+	ret["name"] = (*zone->jStatus)["name"].asString();
+	ret["temperature"] = (*zone->jStatus)["temperatureStatus"]["temperature"].asString();
+	ret["setpointMode"] = (*zone->jStatus)["heatSetpointStatus"]["setpointMode"].asString();
+	ret["targetTemperature"] = (*zone->jStatus)["heatSetpointStatus"]["targetTemperature"].asString();
+	ret["until"] = (*zone->jStatus)["heatSetpointStatus"]["until"].asString();
 	return ret;
 }
 
@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 
 // connect to Evohome server
 	std::cout << "connect to Evohome server\n";
-	EvohomeClient eclient = EvohomeClient();
+	EvohomeClient2 eclient = EvohomeClient2();
 	if (eclient.load_auth_from_file("/tmp/evo2auth.json"))
 		std::cout << "    reusing saved connection (UK/EMEA)\n";
 	else
@@ -190,7 +190,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	EvohomeOldClient v1client = EvohomeOldClient();
+	EvohomeClient v1client = EvohomeClient();
 	if (v1client.load_auth_from_file("/tmp/evo1auth.json"))
 		std::cout << "    reusing saved connection (US)\n";
 	else
@@ -247,26 +247,26 @@ int main(int argc, char** argv)
 
 	if ( evoconfig.find("locationId") != evoconfig.end() )
 	{
-		while ( (eclient.m_vLocations[location].locationId != evoconfig["locationId"])  && (location < (int)eclient.m_vLocations.size()) )
+		while ( (eclient.m_vLocations[location].szLocationId != evoconfig["locationId"])  && (location < (int)eclient.m_vLocations.size()) )
 			location++;
 		if (location == (int)eclient.m_vLocations.size())
 			exit_error(ERROR+"the Evohome location ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("gatewayId") != evoconfig.end() )
 	{
-		while ( (eclient.m_vLocations[location].gateways[gateway].gatewayId != evoconfig["gatewayId"])  && (gateway < (int)eclient.m_vLocations[location].gateways.size()) )
+		while ( (eclient.m_vLocations[location].gateways[gateway].szGatewayId != evoconfig["gatewayId"])  && (gateway < (int)eclient.m_vLocations[location].gateways.size()) )
 			gateway++;
 		if (gateway == (int)eclient.m_vLocations[location].gateways.size())
 			exit_error(ERROR+"the Evohome gateway ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("systemId") != evoconfig.end() )
 	{
-		while ( (eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem].systemId != evoconfig["systemId"])  && (temperatureControlSystem < (int)eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size()) )
+		while ( (eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem].szSystemId != evoconfig["systemId"])  && (temperatureControlSystem < (int)eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size()) )
 			temperatureControlSystem++;
 		if (temperatureControlSystem == (int)eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size())
 			exit_error(ERROR+"the Evohome system ID specified in "+CONF_FILE+" cannot be found");
 	}
-	EvohomeClient::temperatureControlSystem* tcs = &eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	evohome::device::temperatureControlSystem *tcs = &eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 
 
 // retrieve Evohome status
@@ -316,13 +316,13 @@ int main(int argc, char** argv)
 
 // start demo output
 	std::cout << "\nSystem info:\n";
-	std::cout << "    Model Type = " << (*tcs->installationInfo)["modelType"] << "\n";
-	std::cout << "    System ID = " << (*tcs->installationInfo)["systemId"] << "\n";
-	std::cout << "    System mode = " << (*tcs->status)["systemModeStatus"]["mode"] << "\n";
+	std::cout << "    Model Type = " << (*tcs->jInstallationInfo)["modelType"] << "\n";
+	std::cout << "    System ID = " << (*tcs->jInstallationInfo)["systemId"] << "\n";
+	std::cout << "    System mode = " << (*tcs->jStatus)["systemModeStatus"]["mode"] << "\n";
 
 	std::cout << "\nZones:\n";
 	std::cout << "      ID       temp    v1temp      mode          setpoint      until               name\n";
-	for (std::vector<EvohomeClient::zone>::size_type i = 0; i < tcs->zones.size(); ++i)
+	for (std::vector<evohome::device::zone>::size_type i = 0; i < tcs->zones.size(); ++i)
 	{
 		std::map<std::string,std::string> zone = evo_get_zone_data(&tcs->zones[i]);
 		if (zone["until"].length() == 0)
@@ -363,7 +363,7 @@ int main(int argc, char** argv)
 		std::cout << "    " << zone["zoneId"];
 		std::cout << " => " << zone["temperature"];
 		if (highdef)
-			std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].locationId, zone["zoneId"], 1);
+			std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].szLocationId, zone["zoneId"], 1);
 		std::cout << " => " << zone["setpointMode"];
 		std::cout << " => " << zone["targetTemperature"];
 		std::cout << " => " << zone["until"];
@@ -377,11 +377,11 @@ int main(int argc, char** argv)
 
 // Dump json to screen
 /*
-	EvohomeClient::zone* myzone = eclient.get_zone_by_ID(lastzone);
+	evohome::device::zone *myzone = eclient.get_zone_by_ID(lastzone);
 	std::cout << "\nDump of installationinfo for zone" << lastzone << "\n";
-	std::cout << (*myzone->installationInfo).toStyledString() << "\n";
+	std::cout << (*myzone->jInstallationInfo).toStyledString() << "\n";
 	std::cout << "\nDump of statusinfo for zone" << lastzone << "\n";
-	std::cout << (*myzone->status).toStyledString() << "\n";
+	std::cout << (*myzone->jStatus).toStyledString() << "\n";
 
 
 	std::cout << "\nDump of full installationinfo\n";

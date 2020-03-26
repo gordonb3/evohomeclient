@@ -178,7 +178,7 @@ int main(int argc, char** argv)
 // connect to Evohome server
 	if (verbose)
 		cout << "connect to Evohome server\n";
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 // retrieve Evohome installation
 	if (verbose)

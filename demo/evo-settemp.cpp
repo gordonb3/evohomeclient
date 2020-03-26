@@ -181,18 +181,18 @@ std::string utc_to_local(std::string utc_time)
 }
 
 
-map<std::string, std::string> evo_get_zone_data(EvohomeClient::temperatureControlSystem* tcs, int zoneindex)
+map<std::string, std::string> evo_get_zone_data(evohome::device::temperatureControlSystem* tcs, int zoneindex)
 {
 	map<std::string, std::string> ret;
 
 	ret["until"] = "";
 
-	ret["zoneId"] = (*tcs->zones[zoneindex].status)["zoneId"].asString();
-	ret["temperature"] = (*tcs->zones[zoneindex].status)["temperatureStatus"]["temperature"].asString();
-	ret["targetTemperature"] = (*tcs->zones[zoneindex].status)["heatSetpointStatus"]["targetTemperature"].asString();
-	ret["setpointMode"] = (*tcs->zones[zoneindex].status)["heatSetpointStatus"]["setpointMode"].asString();
+	ret["zoneId"] = (*tcs->zones[zoneindex].jStatus)["zoneId"].asString();
+	ret["temperature"] = (*tcs->zones[zoneindex].jStatus)["temperatureStatus"]["temperature"].asString();
+	ret["targetTemperature"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["targetTemperature"].asString();
+	ret["setpointMode"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["setpointMode"].asString();
 	if (ret["setpointMode"] == "TemporaryOverride")
-		ret["until"] = (*tcs->zones[zoneindex].status)["heatSetpointStatus"]["until"].asString();
+		ret["until"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["until"].asString();
 	return ret;
 }
 
@@ -236,7 +236,7 @@ int main(int argc, char** argv)
 
 	if (verbose)
 		cout << "connect to Evohome server\n";
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 	if (strcmp(argv[2],"0") == 0 ) {
 		// cancel override

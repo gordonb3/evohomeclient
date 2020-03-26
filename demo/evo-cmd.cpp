@@ -225,7 +225,7 @@ void exit_error(std::string message)
 }
 
 
-EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(EvohomeClient &eclient)
+evohome::device::temperatureControlSystem* select_temperatureControlSystem(EvohomeClient2 &eclient)
 {
 	int location = 0;
 	int gateway = 0;
@@ -370,7 +370,7 @@ void cmd_backup_and_restore_schedules()
 {
 	// connect to Evohome server
 	log("connect to Evohome server");
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 	// retrieve Evohome installation
 	log("retrieve Evohome installation info");
@@ -429,7 +429,7 @@ std::string format_time(std::string utc_time)
 void cancel_temperature_override()
 {
 	log("connect to Evohome server");
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 	if ( ! eclient.cancel_temperature_override(parameters[1]) )
 		exit_error(szERROR+"failed to cancel override for zone "+parameters[1]);
@@ -455,7 +455,7 @@ void cmd_set_temperature()
 
 
 	log("connect to Evohome server");
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 	log("set target temperature");
 	eclient.set_temperature(parameters[1], parameters[3], s_until);
@@ -469,16 +469,16 @@ void cmd_set_system_mode()
 {
 	if ( (parameters.size() == 0) || (parameters.size() > 2) )
 		usage("badparm");
-	std::string systemId;
+	std::string szSystemId;
 	std::string until = "";
 	std::string mode = parameters[1];
 	if (parameters.size() == 2)
 		until = format_time(parameters[2]);
 	log("connect to Evohome server");
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 	if ( evoconfig.find("systemId") != evoconfig.end() ) {
 		log(szLOG+"using systemId from "+configfile);
-		systemId = evoconfig["systemId"];
+		szSystemId = evoconfig["systemId"];
 	}
 	else
 	{
@@ -486,16 +486,16 @@ void cmd_set_system_mode()
 		eclient.full_installation();
 
 		// set Evohome heating system
-		EvohomeClient::temperatureControlSystem* tcs = NULL;
+		evohome::device::temperatureControlSystem* tcs = NULL;
 		if (eclient.is_single_heating_system())
 			tcs = &eclient.m_vLocations[0].gateways[0].temperatureControlSystems[0];
 		else
 			select_temperatureControlSystem(eclient);
 		if (tcs == NULL)
 			exit_error(szERROR+"multiple Evohome systems found - don't know which one to use");
-		systemId = tcs->systemId;
+		szSystemId = tcs->szSystemId;
 	}
-	if ( ! eclient.set_system_mode(systemId, mode, until) )
+	if ( ! eclient.set_system_mode(szSystemId, mode, until) )
 		exit_error(szERROR+"failed to set system mode to "+mode);
 	log("updated system status");
 	eclient.cleanup();
@@ -514,7 +514,7 @@ void cmd_set_dhw_state()
 		s_until = format_time(parameters[3]);
 
 	log("connect to Evohome server");
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 	log("set domestic hot water state");
 	eclient.set_dhw_mode(parameters[1], parameters[2], s_until);
 	eclient.cleanup();

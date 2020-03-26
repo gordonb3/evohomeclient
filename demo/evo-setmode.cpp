@@ -145,7 +145,7 @@ void parse_args(int argc, char** argv) {
 }
 
 
-EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(EvohomeClient &eclient)
+evohome::device::temperatureControlSystem* select_temperatureControlSystem(EvohomeClient2 &eclient)
 {
 	int location = 0;
 	int gateway = 0;
@@ -197,7 +197,7 @@ int main(int argc, char** argv)
 
 	if (verbose)
 		cout << "connect to Evohome server\n";
-	EvohomeClient eclient = EvohomeClient(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
 
 
 	std::string systemId;
@@ -213,7 +213,7 @@ int main(int argc, char** argv)
 		eclient.full_installation();
 
 		// set Evohome heating system
-		EvohomeClient::temperatureControlSystem* tcs = NULL;
+		evohome::device::temperatureControlSystem *tcs = NULL;
 
 		if (eclient.is_single_heating_system())
 			tcs = &eclient.m_vLocations[0].gateways[0].temperatureControlSystems[0];
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 		if (tcs == NULL)
 			exit_error(ERROR+"multiple Evohome systems found - don't know which one to use");
 
-		systemId = tcs->systemId;
+		systemId = tcs->szSystemId;
 	}
 
 

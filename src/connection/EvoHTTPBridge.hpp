@@ -7,7 +7,7 @@
  * Source code subject to GNU GENERAL PUBLIC LICENSE version 3
  */
 
-#include "HTTPClient_Base.hpp"
+#include "HTTPClient.hpp"
 
 
 class EvoHTTPBridge : public HTTPClient_Base

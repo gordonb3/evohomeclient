@@ -7,27 +7,22 @@
  * Source code subject to GNU GENERAL PUBLIC LICENSE version 3
  */
 
-#ifndef _EvohomeOldClient
-#define _EvohomeOldClient
+#ifndef _EvohomeV1Client
+#define _EvohomeV1Client
 
-#include <map>
 #include <vector>
 #include <string>
 #include "jsoncpp/json.h"
 
+#include "evohome/devices.h"
 
-class EvohomeOldClient
+
+class EvohomeClient
 {
 public:
-	typedef struct location
-	{
-		std::string szLocationId;
-		Json::Value *jInstallationInfo;
-	} _sLocation;
-
-	EvohomeOldClient();
-	EvohomeOldClient(const std::string &user, const std::string &password);
-	~EvohomeOldClient();
+	EvohomeClient();
+	EvohomeClient(const std::string &user, const std::string &password);
+	~EvohomeClient();
 	void cleanup();
 
 	bool login(const std::string &user, const std::string &password);
@@ -35,21 +30,20 @@ public:
 	bool load_auth_from_file(const std::string &szFilename);
 
 	bool full_installation();
-	std::string get_zone_temperature(std::string locationId, std::string zoneId, int decimals);
-
-	Json::Value m_jFullInstallation;
-	std::vector<_sLocation> m_vLocations;
+	std::string get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const int decimals);
 
 	std::string get_last_error();
+
+	std::vector<evohome::device::location> m_vLocations;
 
 private:
 	void init();
 
+	Json::Value m_jFullInstallation;
 	std::string m_szSessionId;
 	time_t m_tLastWebCall;
 	std::string m_szUserId;
 	std::vector<std::string> m_vEvoHeader;
-
 	std::string m_szLastError;
 };
 

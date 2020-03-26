@@ -28,17 +28,17 @@
 /*
  * Class construct
  */
-EvohomeOldClient::EvohomeOldClient()
+EvohomeClient::EvohomeClient()
 {
 	init();
 }
-EvohomeOldClient::EvohomeOldClient(const std::string &user, const std::string &password)
+EvohomeClient::EvohomeClient(const std::string &user, const std::string &password)
 {
 	init();
 	login(user, password);
 }
 
-EvohomeOldClient::~EvohomeOldClient()
+EvohomeClient::~EvohomeClient()
 {
 	cleanup();
 }
@@ -52,7 +52,7 @@ EvohomeOldClient::~EvohomeOldClient()
 /*
  * Initialize curl web client
  */
-void EvohomeOldClient::init()
+void EvohomeClient::init()
 {
 }
 
@@ -60,13 +60,13 @@ void EvohomeOldClient::init()
 /*
  * Cleanup curl web client
  */
-void EvohomeOldClient::cleanup()
+void EvohomeClient::cleanup()
 {
 	std::cout << "cleanup (v1) not implemented yet\n";
 }
 
 
-std::string EvohomeOldClient::get_last_error()
+std::string EvohomeClient::get_last_error()
 {
 	return m_szLastError;
 }
@@ -82,7 +82,7 @@ std::string EvohomeOldClient::get_last_error()
 /* 
  * login to evohome web server
  */
-bool EvohomeOldClient::login(const std::string &user, const std::string &password)
+bool EvohomeClient::login(const std::string &user, const std::string &password)
 {
 	std::vector<std::string> vLoginHeader;
 	vLoginHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
@@ -151,7 +151,7 @@ bool EvohomeOldClient::login(const std::string &user, const std::string &passwor
 /*
  * Save authorization key to a backup file
  */
-bool EvohomeOldClient::save_auth_to_file(const std::string &szFilename)
+bool EvohomeClient::save_auth_to_file(const std::string &szFilename)
 {
 	std::ofstream myfile (szFilename.c_str(), std::ofstream::trunc);
 	if ( myfile.is_open() )
@@ -173,7 +173,7 @@ bool EvohomeOldClient::save_auth_to_file(const std::string &szFilename)
 /*
  * Load authorization key from a backup file
  */
-bool EvohomeOldClient::load_auth_from_file(const std::string &szFilename)
+bool EvohomeClient::load_auth_from_file(const std::string &szFilename)
 {
 	std::string szFileContent;
 	std::ifstream myfile (szFilename.c_str());
@@ -221,9 +221,9 @@ bool EvohomeOldClient::load_auth_from_file(const std::string &szFilename)
 /* 
  * Retrieve evohome installation info
  */
-bool EvohomeOldClient::full_installation()
+bool EvohomeClient::full_installation()
 {
-	std::vector<_sLocation>().swap(m_vLocations);
+	std::vector<evohome::device::location>().swap(m_vLocations);
 
 	std::string szUrl = EVOHOME_HOST"/WebAPI/api/locations/?userId=";
 	szUrl.append(m_szUserId);
@@ -250,7 +250,7 @@ bool EvohomeOldClient::full_installation()
 	int l = static_cast<int>(m_jFullInstallation["locations"].size());
 	for (int i = 0; i < l; ++i)
 	{
-		_sLocation newloc = _sLocation();
+		evohome::device::location newloc = evohome::device::location();
 		m_vLocations.push_back(newloc);
 		m_vLocations[i].jInstallationInfo = &m_jFullInstallation["locations"][i];
 		m_vLocations[i].szLocationId = (*m_vLocations[i].jInstallationInfo)["locationID"].asString();
@@ -263,7 +263,7 @@ bool EvohomeOldClient::full_installation()
 /* 
  * Extract a zone's temperature from system status
  */
-std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
+std::string EvohomeClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
 {
 	if ((m_vLocations.size() == 0) && (!full_installation()))
 		return "";
@@ -295,7 +295,7 @@ std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::
 
 			// limit output to two decimals
 			std::stringstream sstemp;
-			sstemp << ((floor((temperature * multiplier) + 0.5) / multiplier) + 0.0001);
+			sstemp << ((floor((temperature *multiplier) + 0.5) / multiplier) + 0.0001);
 			std::string sztemp = sstemp.str();
 
 			sstemp.str("");
