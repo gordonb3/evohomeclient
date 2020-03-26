@@ -60,12 +60,13 @@ public:
 	EvohomeClient();
 	EvohomeClient(const std::string &szUser, const std::string &szPassword);
 	~EvohomeClient();
+
 	void cleanup();
 
 	bool login(const std::string &szUser, const std::string &szPassword);
 	bool renew_login();
-	bool save_auth_to_file(std::string szFilename);
-	bool load_auth_from_file(std::string szFilename);
+	bool save_auth_to_file(const std::string &szFilename);
+	bool load_auth_from_file(const std::string &szFilename);
 
 
 	bool full_installation();
@@ -82,35 +83,30 @@ public:
 	bool has_dhw(temperatureControlSystem *tcs);
 	bool is_single_heating_system();
 
-	bool schedules_backup(std::string szFilename);
-	bool schedules_restore(std::string szFilename);
-	bool read_schedules_from_file(std::string szFilename);
-	bool get_dhw_schedule(std::string dhwId);
-	bool get_zone_schedule(std::string zoneId);
-	bool get_zone_schedule(std::string zoneId, std::string zoneType);
-	bool set_dhw_schedule(std::string dhwId, Json::Value *schedule);
-	bool set_zone_schedule(std::string zoneId, Json::Value *schedule);
-	bool set_zone_schedule(std::string zoneId, std::string zoneType, Json::Value *schedule);
+	bool schedules_backup(const std::string &szFilename);
+	bool schedules_restore(const std::string &szFilename);
+	bool read_schedules_from_file(const std::string &szFilename);
+
+	bool get_dhw_schedule(const std::string szDHWId);
+	bool get_zone_schedule(const std::string szZoneId);
+
+	bool set_dhw_schedule(const std::string szDHWId, Json::Value *jSchedule);
+	bool set_zone_schedule(const std::string szZoneId, Json::Value *jSchedule);
 
 	std::string get_next_switchpoint(temperatureControlSystem* tcs, int zone);
 	std::string get_next_switchpoint(zone* hz);
 	std::string get_next_switchpoint(std::string zoneId);
-	std::string get_next_switchpoint(Json::Value &schedule);
-	std::string get_next_switchpoint_ex(Json::Value &schedule, std::string &current_setpoint);
-	std::string get_next_switchpoint_ex(Json::Value &schedule, std::string &current_setpoint, int force_weekday);
+	std::string get_next_switchpoint(Json::Value &jSchedule);
+	std::string get_next_switchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday = -1, bool convert_to_utc = false);
 
-	std::string get_next_switchpoint_ex(Json::Value &schedule, std::string &current_setpoint, int force_weekday, bool convert_to_utc);
 	std::string get_next_utcswitchpoint(EvohomeClient::temperatureControlSystem* tcs, int zone);
 	std::string get_next_utcswitchpoint(zone* hz);
 	std::string get_next_utcswitchpoint(std::string zoneId);
-	std::string get_next_utcswitchpoint(Json::Value &schedule);
-	std::string get_next_utcswitchpoint_ex(Json::Value &schedule, std::string &current_setpoint);
-	std::string get_next_utcswitchpoint_ex(Json::Value &schedule, std::string &current_setpoint, int force_weekday);
+	std::string get_next_utcswitchpoint(Json::Value &jSchedule);
+	std::string get_next_utcswitchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday = -1);
 
-	bool set_system_mode(std::string systemId, int mode, std::string date_until);
-	bool set_system_mode(std::string systemId, int mode);
-	bool set_system_mode(std::string systemId, std::string mode, std::string date_until);
-	bool set_system_mode(std::string systemId, std::string mode);
+	bool set_system_mode(const std::string systemId, const int mode, const std::string date_until = "");
+	bool set_system_mode(const std::string systemId, const std::string mode, const std::string date_until = "");
 
 	bool set_temperature(std::string zoneId, std::string temperature, std::string time_until);
 	bool set_temperature(std::string zoneId, std::string temperature);
@@ -126,13 +122,14 @@ public:
 	std::string local_to_utc(std::string local_time);
 	std::string utc_to_local(std::string utc_time);
 
-	std::vector<location> locations;
-	Json::Value m_jFullInstallation;
-	Json::Value m_jFullStatus;
+	std::vector<location> m_vLocations;
 
 	std::string get_last_error();
 
 private:
+	Json::Value m_jFullInstallation;
+	Json::Value m_jFullStatus;
+
 	std::string m_szUserId;
 	std::string m_szAccessToken;
 	std::string m_szRefreshToken;
@@ -150,6 +147,10 @@ private:
 	void get_temperatureControlSystems(int location, int gateway);
 	void get_zones(int location, int gateway, int temperatureControlSystem);
 	void get_dhw(int location, int gateway, int temperatureControlSystem);
+
+	bool get_zone_schedule_ex(const std::string szZoneId, const std::string szZoneType);
+	bool set_zone_schedule_ex(const std::string szZoneId, const std::string zoneType, Json::Value *jSchedule);
+
 };
 
 #endif

@@ -18,8 +18,8 @@
 #include <map>
 #include <cstring>
 #include <time.h>
-#include "../evohomeclient/evohomeclient.h"
-#include "../evohomeclient/evohomeoldclient.h"
+#include "evohomeclient/evohomeclient.h"
+#include "evohomeclient2/evohomeclient.h"
 
 #ifndef CONF_FILE
 #define CONF_FILE "evoconfig"
@@ -106,27 +106,27 @@ EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(Evohome
 	if ( evoconfig.find("location") != evoconfig.end() ) {
 		if (verbose)
 			cout << "using location from " << configfile << endl;
-		int l = eclient.locations.size();
+		int l = eclient.m_vLocations.size();
 		location = atoi(evoconfig["location"].c_str());
 		if (location > l)
 			exit_error(ERROR+"the Evohome location specified in "+configfile+" cannot be found");
-		is_unique_heating_system = ( (eclient.locations[location].gateways.size() == 1) &&
-						(eclient.locations[location].gateways[0].temperatureControlSystems.size() == 1)
+		is_unique_heating_system = ( (eclient.m_vLocations[location].gateways.size() == 1) &&
+						(eclient.m_vLocations[location].gateways[0].temperatureControlSystems.size() == 1)
 						);
 	}
 	if ( evoconfig.find("gateway") != evoconfig.end() ) {
 		if (verbose)
 			cout << "using gateway from " << configfile << endl;
-		int l = eclient.locations[location].gateways.size();
+		int l = eclient.m_vLocations[location].gateways.size();
 		gateway = atoi(evoconfig["gateway"].c_str());
 		if (gateway > l)
 			exit_error(ERROR+"the Evohome gateway specified in "+configfile+" cannot be found");
-		is_unique_heating_system = (eclient.locations[location].gateways[gateway].temperatureControlSystems.size() == 1);
+		is_unique_heating_system = (eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size() == 1);
 	}
 	if ( evoconfig.find("controlsystem") != evoconfig.end() ) {
 		if (verbose)
 			cout << "using controlsystem from " << configfile << endl;
-		int l = eclient.locations[location].gateways[gateway].temperatureControlSystems.size();
+		int l = eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size();
 		temperatureControlSystem = atoi(evoconfig["controlsystem"].c_str());
 		if (temperatureControlSystem > l)
 			exit_error(ERROR+"the Evohome temperature controlsystem specified in "+configfile+" cannot be found");
@@ -137,7 +137,7 @@ EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(Evohome
 	if ( ! is_unique_heating_system)
 		return NULL;
 
-	return &eclient.locations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	return &eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 }
 
 
@@ -247,26 +247,26 @@ int main(int argc, char** argv)
 
 	if ( evoconfig.find("locationId") != evoconfig.end() )
 	{
-		while ( (eclient.locations[location].locationId != evoconfig["locationId"])  && (location < (int)eclient.locations.size()) )
+		while ( (eclient.m_vLocations[location].locationId != evoconfig["locationId"])  && (location < (int)eclient.m_vLocations.size()) )
 			location++;
-		if (location == (int)eclient.locations.size())
+		if (location == (int)eclient.m_vLocations.size())
 			exit_error(ERROR+"the Evohome location ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("gatewayId") != evoconfig.end() )
 	{
-		while ( (eclient.locations[location].gateways[gateway].gatewayId != evoconfig["gatewayId"])  && (gateway < (int)eclient.locations[location].gateways.size()) )
+		while ( (eclient.m_vLocations[location].gateways[gateway].gatewayId != evoconfig["gatewayId"])  && (gateway < (int)eclient.m_vLocations[location].gateways.size()) )
 			gateway++;
-		if (gateway == (int)eclient.locations[location].gateways.size())
+		if (gateway == (int)eclient.m_vLocations[location].gateways.size())
 			exit_error(ERROR+"the Evohome gateway ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("systemId") != evoconfig.end() )
 	{
-		while ( (eclient.locations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem].systemId != evoconfig["systemId"])  && (temperatureControlSystem < (int)eclient.locations[location].gateways[gateway].temperatureControlSystems.size()) )
+		while ( (eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem].systemId != evoconfig["systemId"])  && (temperatureControlSystem < (int)eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size()) )
 			temperatureControlSystem++;
-		if (temperatureControlSystem == (int)eclient.locations[location].gateways[gateway].temperatureControlSystems.size())
+		if (temperatureControlSystem == (int)eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size())
 			exit_error(ERROR+"the Evohome system ID specified in "+CONF_FILE+" cannot be found");
 	}
-	EvohomeClient::temperatureControlSystem* tcs = &eclient.locations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	EvohomeClient::temperatureControlSystem* tcs = &eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 
 
 // retrieve Evohome status

@@ -14,7 +14,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include "evohomeoldclient.h"
+#include "evohomeclient.h"
 #include <stdexcept>
 
 #include "connection/EvoHTTPBridge.hpp"
@@ -32,7 +32,7 @@ EvohomeOldClient::EvohomeOldClient()
 {
 	init();
 }
-EvohomeOldClient::EvohomeOldClient(std::string user, std::string password)
+EvohomeOldClient::EvohomeOldClient(const std::string &user, const std::string &password)
 {
 	init();
 	login(user, password);
@@ -82,7 +82,7 @@ std::string EvohomeOldClient::get_last_error()
 /* 
  * login to evohome web server
  */
-bool EvohomeOldClient::login(std::string user, std::string password)
+bool EvohomeOldClient::login(const std::string &user, const std::string &password)
 {
 	std::vector<std::string> vLoginHeader;
 	vLoginHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
@@ -122,9 +122,8 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 		szError = jLogin["message"].asString();
 	if (!szError.empty())
 	{
-		std::stringstream ss_err;
-		ss_err << "Login to Evohome server failed with message: " << szError;
-		m_szLastError = ss_err.str();
+		m_szLastError = "Login to Evohome server failed with message: ";
+		m_szLastError.append(szError);
 		return false;
 	}
 
@@ -135,12 +134,13 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 	}
 
 	m_szSessionId = jLogin["sessionId"].asString();
-	std::stringstream atoken;
-	atoken << "sessionId: " << m_szSessionId;
 	m_szUserId = jLogin["userInfo"]["userID"].asString();
 
+	std::string szAuthBearer = "sessionId: ";
+	szAuthBearer.append(m_szSessionId);
+
 	m_vEvoHeader.clear();
-	m_vEvoHeader.push_back(atoken.str());
+	m_vEvoHeader.push_back(szAuthBearer);
 	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
 	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
@@ -151,7 +151,7 @@ bool EvohomeOldClient::login(std::string user, std::string password)
 /*
  * Save authorization key to a backup file
  */
-bool EvohomeOldClient::save_auth_to_file(std::string szFilename)
+bool EvohomeOldClient::save_auth_to_file(const std::string &szFilename)
 {
 	std::ofstream myfile (szFilename.c_str(), std::ofstream::trunc);
 	if ( myfile.is_open() )
@@ -173,7 +173,7 @@ bool EvohomeOldClient::save_auth_to_file(std::string szFilename)
 /*
  * Load authorization key from a backup file
  */
-bool EvohomeOldClient::load_auth_from_file(std::string szFilename)
+bool EvohomeOldClient::load_auth_from_file(const std::string &szFilename)
 {
 	std::string szFileContent;
 	std::ifstream myfile (szFilename.c_str());
@@ -197,15 +197,14 @@ bool EvohomeOldClient::load_auth_from_file(std::string szFilename)
 	m_tLastWebCall = static_cast<time_t>(atoi(jAuth["last_use"].asString().c_str()));
 	m_szUserId = jAuth["user_id"].asString();
 
-
 	if ((time(NULL) - m_tLastWebCall) > SESSION_EXPIRATION_TIME)
 		return false;
 
-	std::stringstream atoken;
-	atoken << "sessionId: " << m_szSessionId;
+	std::string szAuthBearer = "sessionId: ";
+	szAuthBearer.append(m_szSessionId);
 
 	m_vEvoHeader.clear();
-	m_vEvoHeader.push_back(atoken.str());
+	m_vEvoHeader.push_back(szAuthBearer);
 	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
 	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
@@ -253,12 +252,8 @@ bool EvohomeOldClient::full_installation()
 	{
 		_sLocation newloc = _sLocation();
 		m_vLocations.push_back(newloc);
-		m_vLocations[i].installationInfo = &m_jFullInstallation["locations"][i];
-		if ((*m_vLocations[i].installationInfo).isMember("locationID"))
-		{
-			m_vLocations[i].szLocationId = (*m_vLocations[i].installationInfo)["locationIDs"].asString();
-std::cout << "found v1 locationdID: " << m_vLocations[i].szLocationId << "\n";
-		}
+		m_vLocations[i].jInstallationInfo = &m_jFullInstallation["locations"][i];
+		m_vLocations[i].szLocationId = (*m_vLocations[i].jInstallationInfo)["locationID"].asString();
 	}
 
 	return true;
@@ -277,7 +272,7 @@ std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::
 
 	for (size_t iloc = 0; iloc < m_vLocations.size(); iloc++)
 	{
-		Json::Value *j_loc = m_vLocations[iloc].installationInfo;
+		Json::Value *j_loc = m_vLocations[iloc].jInstallationInfo;
 		if (!(*j_loc).isMember("devices") || !(*j_loc)["devices"].isArray())
 			continue;
 
@@ -294,13 +289,13 @@ std::string EvohomeOldClient::get_zone_temperature(std::string locationId, std::
 			if ((*j_dev)["deviceID"].asString() != zoneId)
 				continue;
 
-			double v1temp = (*j_dev)["thermostat"]["indoorTemperature"].asDouble();
-			if (v1temp > 127) // allow rounding error
+			double temperature = (*j_dev)["thermostat"]["indoorTemperature"].asDouble();
+			if (temperature > 127) // allow rounding error
 				return "128"; // unit is offline
 
 			// limit output to two decimals
 			std::stringstream sstemp;
-			sstemp << ((floor((v1temp * multiplier) + 0.5) / multiplier) + 0.0001);
+			sstemp << ((floor((temperature * multiplier) + 0.5) / multiplier) + 0.0001);
 			std::string sztemp = sstemp.str();
 
 			sstemp.str("");

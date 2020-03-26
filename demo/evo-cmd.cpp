@@ -14,7 +14,7 @@
 #include <cstring>
 #include <time.h>
 #include <stdlib.h>
-#include "../evohomeclient/evohomeclient.h"
+#include "evohomeclient2/evohomeclient.h"
 
 
 #ifndef MYNAME
@@ -233,25 +233,25 @@ EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(Evohome
 	bool is_unique_heating_system = false;
 	if ( evoconfig.find("location") != evoconfig.end() ) {
 		log(szLOG+"using location from "+configfile);
-		int l = eclient.locations.size();
+		int l = eclient.m_vLocations.size();
 		location = atoi(evoconfig["location"].c_str());
 		if (location > l)
 			exit_error(szERROR+"the Evohome location specified in "+configfile+" cannot be found");
-		is_unique_heating_system = ( (eclient.locations[location].gateways.size() == 1) &&
-						(eclient.locations[location].gateways[0].temperatureControlSystems.size() == 1)
+		is_unique_heating_system = ( (eclient.m_vLocations[location].gateways.size() == 1) &&
+						(eclient.m_vLocations[location].gateways[0].temperatureControlSystems.size() == 1)
 						);
 	}
 	if ( evoconfig.find("gateway") != evoconfig.end() ) {
 		log(szLOG+"using gateway from "+configfile);
-		int l = eclient.locations[location].gateways.size();
+		int l = eclient.m_vLocations[location].gateways.size();
 		gateway = atoi(evoconfig["gateway"].c_str());
 		if (gateway > l)
 			exit_error(szERROR+"the Evohome gateway specified in "+configfile+" cannot be found");
-		is_unique_heating_system = (eclient.locations[location].gateways[gateway].temperatureControlSystems.size() == 1);
+		is_unique_heating_system = (eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size() == 1);
 	}
 	if ( evoconfig.find("controlsystem") != evoconfig.end() ) {
 		log(szLOG+"using controlsystem from "+configfile);
-		int l = eclient.locations[location].gateways[gateway].temperatureControlSystems.size();
+		int l = eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems.size();
 		temperatureControlSystem = atoi(evoconfig["controlsystem"].c_str());
 		if (temperatureControlSystem > l)
 			exit_error(szERROR+"the Evohome temperature controlsystem specified in "+configfile+" cannot be found");
@@ -261,7 +261,7 @@ EvohomeClient::temperatureControlSystem* select_temperatureControlSystem(Evohome
 	if ( ! is_unique_heating_system)
 		return NULL;
 
-	return &eclient.locations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	return &eclient.m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 }
 
 
@@ -488,7 +488,7 @@ void cmd_set_system_mode()
 		// set Evohome heating system
 		EvohomeClient::temperatureControlSystem* tcs = NULL;
 		if (eclient.is_single_heating_system())
-			tcs = &eclient.locations[0].gateways[0].temperatureControlSystems[0];
+			tcs = &eclient.m_vLocations[0].gateways[0].temperatureControlSystems[0];
 		else
 			select_temperatureControlSystem(eclient);
 		if (tcs == NULL)

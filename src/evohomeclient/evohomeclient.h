@@ -22,18 +22,17 @@ public:
 	typedef struct location
 	{
 		std::string szLocationId;
-		Json::Value *installationInfo;
-		Json::Value *status;
+		Json::Value *jInstallationInfo;
 	} _sLocation;
 
 	EvohomeOldClient();
-	EvohomeOldClient(std::string user, std::string password);
+	EvohomeOldClient(const std::string &user, const std::string &password);
 	~EvohomeOldClient();
 	void cleanup();
 
-	bool login(std::string user, std::string password);
-	bool save_auth_to_file(std::string szFilename);
-	bool load_auth_from_file(std::string szFilename);
+	bool login(const std::string &user, const std::string &password);
+	bool save_auth_to_file(const std::string &szFilename);
+	bool load_auth_from_file(const std::string &szFilename);
 
 	bool full_installation();
 	std::string get_zone_temperature(std::string locationId, std::string zoneId, int decimals);

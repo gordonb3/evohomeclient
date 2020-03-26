@@ -14,7 +14,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <time.h>
-#include "../evohomeclient/evohomeclient.h"
+#include "evohomeclient2/evohomeclient.h"
 
 #ifndef CONF_FILE
 #define CONF_FILE "evoconfig"
