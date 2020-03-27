@@ -29,6 +29,10 @@
 #define SCHEDULE_CACHE "schedules.json"
 #endif
 
+
+#define SHOW_DECIMALS 1
+
+
 using namespace std;
 
 
@@ -173,19 +177,11 @@ int main(int argc, char** argv)
 		std::cout << "    reusing saved connection (UK/EMEA)\n";
 	else
 	{
-		try
+		if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+			std::cout << "    connected (UK/EMEA)\n";
+		else
 		{
-			if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
-				std::cout << "    connected (UK/EMEA)\n";
-			else
-			{
-				std::cout << "    login failed (UK/EMEA)\n";
-				exit(1);
-			}
-		}
-		catch (...)
-		{
-			std::cerr << "    client error while trying to connect (UK/EMEA)\n";
+			std::cout << "    login failed (UK/EMEA)\n";
 			exit(1);
 		}
 	}
@@ -195,49 +191,25 @@ int main(int argc, char** argv)
 		std::cout << "    reusing saved connection (US)\n";
 	else
 	{
-		try
+		if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
+			std::cout << "    connected (US)\n";
+		else
 		{
-			if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
-				std::cout << "    connected (US)\n";
-			else
-			{
-				std::cout << "    login failed (US)\n";
-				highdef = false;
-			}
-		}
-		catch (...)
-		{
-			std::cerr << "    client error while trying to connect (US)\n";
+			std::cout << "    login failed (US)\n";
 			highdef = false;
 		}
 	}
 
 // retrieve Evohome installation
 	std::cout << "retrieve Evohome installation\n";
-	try
+	if (!eclient.full_installation())
 	{
-		if (!eclient.full_installation())
-		{
-			std::cout << "    portal returned incorrect data\n";
-			exit(1);
-		}
-	}
-	catch (...)
-	{
-		std::cerr << "    client error while trying to retrieve installation info\n";
+		std::cout << "    portal returned incorrect data\n";
 		exit(1);
 	}
 	if (highdef)
 	{
-		try
-		{
-			highdef = v1client.full_installation();
-		}
-		catch (...)
-		{
-			std::cout << "    client error while trying to retrieve installation info\n";
-			highdef = false;
-		}
+		highdef = v1client.full_installation();
 	}
 
 // set Evohome heating system
@@ -271,16 +243,8 @@ int main(int argc, char** argv)
 
 // retrieve Evohome status
 	std::cout << "retrieve Evohome status\n";
-	try
-	{
-		if ( !	eclient.get_status(location) )
-			std::cout << "status fail" << "\n";
-	}
-	catch (...)
-	{
-		std::cerr << "    client error while trying to retrieve status\n";
-		exit(1);
-	}
+	if ( !	eclient.get_status(location) )
+		std::cout << "status fail" << "\n";
 
 /*
 	std::cout << "\nDump of full installationinfo\n";
@@ -300,17 +264,9 @@ int main(int argc, char** argv)
 	if ( ! eclient.read_schedules_from_file(SCHEDULE_CACHE) )
 	{
 		std::cout << "create local copy of schedules" << "\n";
-		try
-		{
-			if ( ! eclient.schedules_backup(SCHEDULE_CACHE) )
-				exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
-			eclient.read_schedules_from_file(SCHEDULE_CACHE);
-		}
-		catch (...)
-		{
-			std::cerr << "    client error while trying to retrieve schedule info\n";
-			exit(1);
-		}
+		if ( ! eclient.schedules_backup(SCHEDULE_CACHE) )
+			exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
+		eclient.read_schedules_from_file(SCHEDULE_CACHE);
 	}
 
 
@@ -321,7 +277,10 @@ int main(int argc, char** argv)
 	std::cout << "    System mode = " << (*tcs->jStatus)["systemModeStatus"]["mode"] << "\n";
 
 	std::cout << "\nZones:\n";
-	std::cout << "      ID       temp    v1temp      mode          setpoint      until               name\n";
+	std::cout << "      ID       temp    ";
+	if (highdef)
+		std::cout << "v1temp      ";
+	std::cout << "mode          setpoint      until               name\n";
 	for (std::vector<evohome::device::zone>::size_type i = 0; i < tcs->zones.size(); ++i)
 	{
 		std::map<std::string,std::string> zone = evo_get_zone_data(&tcs->zones[i]);
@@ -363,7 +322,7 @@ int main(int argc, char** argv)
 		std::cout << "    " << zone["zoneId"];
 		std::cout << " => " << zone["temperature"];
 		if (highdef)
-			std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].szLocationId, zone["zoneId"], 1);
+			std::cout << " => " << v1client.get_zone_temperature(tcs->zones[i].szLocationId, zone["zoneId"], SHOW_DECIMALS);
 		std::cout << " => " << zone["setpointMode"];
 		std::cout << " => " << zone["targetTemperature"];
 		std::cout << " => " << zone["until"];

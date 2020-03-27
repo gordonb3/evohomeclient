@@ -14,7 +14,7 @@
 #include <string>
 #include "jsoncpp/json.h"
 
-#include "evohome/devices.h"
+#include "evohome/devices.hpp"
 
 
 class EvohomeClient
@@ -30,7 +30,7 @@ public:
 	bool load_auth_from_file(const std::string &szFilename);
 
 	bool full_installation();
-	std::string get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const int decimals);
+	std::string get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const int numDecimals);
 
 	std::string get_last_error();
 

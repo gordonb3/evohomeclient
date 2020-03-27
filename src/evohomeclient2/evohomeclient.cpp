@@ -18,6 +18,7 @@
 #include "evohomeclient.h"
 #include "jsoncpp/json.h"
 #include "connection/EvoHTTPBridge.hpp"
+#include "evohome/jsoncppbridge.hpp"
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
 
@@ -59,11 +60,7 @@ EvohomeClient2::EvohomeClient2()
 EvohomeClient2::EvohomeClient2(const std::string &szUser, const std::string &szPassword)
 {
 	init();
-	bool login_success;
-	login_success = login(szUser, szPassword);
-
-	if (!login_success)
-		m_szLastError = "login fail";
+	login(szUser, szPassword);
 }
 
 
@@ -131,19 +128,12 @@ bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassw
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
 
-	if (szResponse[0] == '[') // got unnamed array as reply
-	{
-		szResponse[0] = ' ';
-		int len = static_cast<int>(szResponse.size());
-		len--;
-		szResponse[len] = ' ';
-	}
-
 	Json::Value jLogin;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
+	if (evohome::parse_json_string(szResponse, jLogin) < 0)
+	{
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
+	}
 
 	std::string szError = "";
 	if (jLogin.isMember("error"))
@@ -151,7 +141,11 @@ bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassw
 	if (jLogin.isMember("message"))
 		szError = jLogin["message"].asString();
 	if (!szError.empty())
+	{
+		m_szLastError = "login returned ";
+		m_szLastError.append(szError);
 		return false;
+	}
 
 	m_szAccessToken = jLogin["access_token"].asString();
 	m_szRefreshToken = jLogin["refresh_token"].asString();
@@ -192,19 +186,12 @@ bool EvohomeClient2::renew_login()
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
 
-	if (szResponse[0] == '[') // got unnamed array as reply
-	{
-		szResponse[0] = ' ';
-		int len = static_cast<int>(szResponse.size());
-		len--;
-		szResponse[len] = ' ';
-	}
-
 	Json::Value jLogin;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
+	if (evohome::parse_json_string(szResponse, jLogin) < 0)
+	{
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
+	}
 
 	std::string szError = "";
 	if (jLogin.isMember("error"))
@@ -212,7 +199,11 @@ bool EvohomeClient2::renew_login()
 	if (jLogin.isMember("message"))
 		szError = jLogin["message"].asString();
 	if (!szError.empty())
+	{
+		m_szLastError = "login returned ";
+		m_szLastError.append(szError);
 		return false;
+	}
 
 	m_szAccessToken = jLogin["access_token"].asString();
 	m_szRefreshToken = jLogin["refresh_token"].asString();
@@ -272,10 +263,11 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 		myfile.close();
 	}
 	Json::Value jAuth;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szFileContent.c_str(), szFileContent.c_str() + szFileContent.size(), &jAuth, nullptr))
+	if (evohome::parse_json_string(szFileContent, jAuth) < 0)
+	{
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
+	}
 
 	m_szAccessToken = jAuth["access_token"].asString();
 	m_szRefreshToken = jAuth["refresh_token"].asString();
@@ -307,19 +299,12 @@ bool EvohomeClient2::user_account()
 	std::string szUrl = EVOHOME_HOST"/WebAPI/emea/api/v1/userAccount";
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
-	if (szResponse[0] == '[') // got unnamed array as reply
-	{
-		szResponse[0] = ' ';
-		int len = static_cast<int>(szResponse.size());
-		len--;
-		szResponse[len] = ' ';
-	}
-
 	Json::Value jUserAccount;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jUserAccount, nullptr) || !jUserAccount.isMember("userId"))
+	if (evohome::parse_json_string(szResponse, jUserAccount) < 0)
+	{
+		m_szLastError = "Failed to parse server response as JSON";
 		return false;
+	}
 
 	m_szUserId = jUserAccount["userId"].asString();
 	return true;
@@ -332,41 +317,41 @@ bool EvohomeClient2::user_account()
  *									*
  ************************************************************************/
 
-void EvohomeClient2::get_dhw(int location, int gateway, int temperatureControlSystem)
+void EvohomeClient2::get_dhw(const int location, const int gateway, const int temperatureControlSystem)
 {
 	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 
 	std::vector<evohome::device::zone>().swap((*myTCS).dhw);
-	Json::Value *j_tcs = (*myTCS).jInstallationInfo;
 
-	if (!has_dhw(&(*myTCS)))
+	if (!has_dhw(myTCS))
 		return;
 
+	Json::Value *jTCS = (*myTCS).jInstallationInfo;
 	(*myTCS).dhw.resize(1);
-	(*myTCS).dhw[0].jInstallationInfo = &(*j_tcs)["dhw"];
-	(*myTCS).dhw[0].szZoneId = (*j_tcs)["dhw"]["dhwId"].asString();;
+	(*myTCS).dhw[0].jInstallationInfo = &(*jTCS)["dhw"];
+	(*myTCS).dhw[0].szZoneId = (*jTCS)["dhw"]["dhwId"].asString();;
 	(*myTCS).dhw[0].szSystemId = (*myTCS).szSystemId;
 	(*myTCS).dhw[0].szGatewayId = (*myTCS).szGatewayId;
 	(*myTCS).dhw[0].szLocationId = (*myTCS).szLocationId;
 }
 
 
-void EvohomeClient2::get_zones(int location, int gateway, int temperatureControlSystem)
+void EvohomeClient2::get_zones(const int location, const int gateway, const int temperatureControlSystem)
 {
 	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
 
 	std::vector<evohome::device::zone>().swap((*myTCS).zones);
-	Json::Value *j_tcs = (*myTCS).jInstallationInfo;
+	Json::Value *jTCS = (*myTCS).jInstallationInfo;
 
-	if (!(*j_tcs)["zones"].isArray())
+	if (!(*jTCS)["zones"].isArray())
 		return;
 
-	int l = static_cast<int>((*j_tcs)["zones"].size());
+	int l = static_cast<int>((*jTCS)["zones"].size());
 	(*myTCS).zones.resize(l);
 	for (int i = 0; i < l; ++i)
 	{
-		(*myTCS).zones[i].jInstallationInfo = &(*j_tcs)["zones"][i];
-		(*myTCS).zones[i].szZoneId = (*j_tcs)["zones"][i]["zoneId"].asString();
+		(*myTCS).zones[i].jInstallationInfo = &(*jTCS)["zones"][i];
+		(*myTCS).zones[i].szZoneId = (*jTCS)["zones"][i]["zoneId"].asString();
 		(*myTCS).zones[i].szSystemId = (*myTCS).szSystemId;
 		(*myTCS).zones[i].szGatewayId = (*myTCS).szGatewayId;
 		(*myTCS).zones[i].szLocationId = (*myTCS).szLocationId;
@@ -374,25 +359,25 @@ void EvohomeClient2::get_zones(int location, int gateway, int temperatureControl
 }
 
 
-void EvohomeClient2::get_temperatureControlSystems(int location, int gateway)
+void EvohomeClient2::get_temperatureControlSystems(const int location, const int gateway)
 {
 
 	evohome::device::gateway *myGateway = &m_vLocations[location].gateways[gateway];
 
 	std::vector<evohome::device::temperatureControlSystem>().swap((*myGateway).temperatureControlSystems);
-	Json::Value *j_gw = (*myGateway).jInstallationInfo;
+	Json::Value *jGateway = (*myGateway).jInstallationInfo;
 
-	if (!(*j_gw)["temperatureControlSystems"].isArray())
+	if (!(*jGateway)["temperatureControlSystems"].isArray())
 		return;
 
-	int l = static_cast<int>((*j_gw)["temperatureControlSystems"].size());
+	int l = static_cast<int>((*jGateway)["temperatureControlSystems"].size());
 	(*myGateway).temperatureControlSystems.resize(l);
 	for (int i = 0; i < l; ++i)
 	{
-		(*myGateway).temperatureControlSystems[i].jInstallationInfo = &(*j_gw)["temperatureControlSystems"][i];
-		(*myGateway).temperatureControlSystems[i].szSystemId = (*j_gw)["temperatureControlSystems"][i]["systemId"].asString();
+		(*myGateway).temperatureControlSystems[i].jInstallationInfo = &(*jGateway)["temperatureControlSystems"][i];
+		(*myGateway).temperatureControlSystems[i].szSystemId = (*jGateway)["temperatureControlSystems"][i]["systemId"].asString();
 		(*myGateway).temperatureControlSystems[i].szGatewayId = (*myGateway).szGatewayId;
-		(*myGateway).temperatureControlSystems[i].szLocationId =(*myGateway).szLocationId;
+		(*myGateway).temperatureControlSystems[i].szLocationId = (*myGateway).szLocationId;
 
 		get_zones(location, gateway, i);
 		get_dhw(location, gateway, i);
@@ -400,20 +385,20 @@ void EvohomeClient2::get_temperatureControlSystems(int location, int gateway)
 }
 
 
-void EvohomeClient2::get_gateways(int location)
+void EvohomeClient2::get_gateways(const int location)
 {
 	std::vector<evohome::device::gateway>().swap(m_vLocations[location].gateways);
-	Json::Value *j_loc = m_vLocations[location].jInstallationInfo;
+	Json::Value *jLocation = m_vLocations[location].jInstallationInfo;
 
-	if (!(*j_loc)["gateways"].isArray())
+	if (!(*jLocation)["gateways"].isArray())
 		return;
 
-	int l = static_cast<int>((*j_loc)["gateways"].size());
+	int l = static_cast<int>((*jLocation)["gateways"].size());
 	m_vLocations[location].gateways.resize(l);
 	for (int i = 0; i < l; ++i)
 	{
-		m_vLocations[location].gateways[i].jInstallationInfo = &(*j_loc)["gateways"][i];
-		m_vLocations[location].gateways[i].szGatewayId = (*j_loc)["gateways"][i]["gatewayInfo"]["gatewayId"].asString();
+		m_vLocations[location].gateways[i].jInstallationInfo = &(*jLocation)["gateways"][i];
+		m_vLocations[location].gateways[i].szGatewayId = (*jLocation)["gateways"][i]["gatewayInfo"]["gatewayId"].asString();
 		m_vLocations[location].gateways[i].szLocationId = m_vLocations[location].szLocationId;
 
 		get_temperatureControlSystems(location, i);
@@ -439,9 +424,7 @@ bool EvohomeClient2::full_installation()
 	szResponse.append("}");
 
 	m_jFullInstallation.clear();
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &m_jFullInstallation, nullptr) || !m_jFullInstallation["locations"].isArray())
+	if (evohome::parse_json_string(szResponse, m_jFullInstallation) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -470,21 +453,9 @@ bool EvohomeClient2::full_installation()
 /*
  * Retrieve evohome status info
  */
-bool EvohomeClient2::get_status(std::string szLocationId)
-{
-	if (m_vLocations.size() == 0)
-		return false;
-	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int i = 0; i < numLocations; i++)
-	{
-		if (m_vLocations[i].szLocationId == szLocationId)
-			return get_status(i);
-	}
-	return false;
-}
 bool EvohomeClient2::get_status(int location)
 {
-	Json::Value *j_loc, *j_gw, *j_tcs;
+	Json::Value *jLocation, *jGateway, *jTCS;
 	if ((m_vLocations.size() == 0) || m_vLocations[location].szLocationId.empty())
 		return false;
 
@@ -497,33 +468,31 @@ bool EvohomeClient2::get_status(int location)
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
 	m_jFullStatus.clear();
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &m_jFullStatus, nullptr))
+	if (evohome::parse_json_string(szResponse, m_jFullStatus) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
 	}
 	m_vLocations[location].jStatus = &m_jFullStatus;
-	j_loc = m_vLocations[location].jStatus;
+	jLocation = m_vLocations[location].jStatus;
 
 	// get gateway status
-	if ((*j_loc)["gateways"].isArray())
+	if ((*jLocation)["gateways"].isArray())
 	{
-		int lgw = static_cast<int>((*j_loc)["gateways"].size());
+		int lgw = static_cast<int>((*jLocation)["gateways"].size());
 		for (int igw = 0; igw < lgw; ++igw)
 		{
-			m_vLocations[location].gateways[igw].jStatus = &(*j_loc)["gateways"][igw];
-			j_gw = m_vLocations[location].gateways[igw].jStatus;
+			m_vLocations[location].gateways[igw].jStatus = &(*jLocation)["gateways"][igw];
+			jGateway = m_vLocations[location].gateways[igw].jStatus;
 
 			// get temperatureControlSystem status
-			if ((*j_gw)["temperatureControlSystems"].isArray())
+			if ((*jGateway)["temperatureControlSystems"].isArray())
 			{
-				int ltcs = static_cast<int>((*j_gw)["temperatureControlSystems"].size());
+				int ltcs = static_cast<int>((*jGateway)["temperatureControlSystems"].size());
 				for (int itcs = 0; itcs < ltcs; itcs++)
 				{
-					m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].jStatus = &(*j_gw)["temperatureControlSystems"][itcs];
-					j_tcs = m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].jStatus;
+					m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].jStatus = &(*jGateway)["temperatureControlSystems"][itcs];
+					jTCS = m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].jStatus;
 
 /* ToDo: possible pitfall - does status return objects in the same order as installationInfo?
  *       according to API description a location can (currently) only contain one gateway and
@@ -532,12 +501,12 @@ bool EvohomeClient2::get_status(int location)
  */
 
 					// get zone status
-					if ((*j_tcs)["zones"].isArray())
+					if ((*jTCS)["zones"].isArray())
 					{
-						int lz = static_cast<int>((*j_tcs)["zones"].size());
+						int lz = static_cast<int>((*jTCS)["zones"].size());
 						for (int iz = 0; iz < lz; iz++)
 						{
-							m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].zones[iz].jStatus = &(*j_tcs)["zones"][iz];
+							m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].zones[iz].jStatus = &(*jTCS)["zones"][iz];
 						}
 					}
 					else
@@ -545,7 +514,7 @@ bool EvohomeClient2::get_status(int location)
 
 					if (has_dhw(&m_vLocations[location].gateways[igw].temperatureControlSystems[itcs]))
 					{
-						m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].dhw[0].jStatus = &(*j_tcs)["dhw"];
+						m_vLocations[location].gateways[igw].temperatureControlSystems[itcs].dhw[0].jStatus = &(*jTCS)["dhw"];
 					}
 
 				}
@@ -561,6 +530,19 @@ bool EvohomeClient2::get_status(int location)
 }
 
 
+bool EvohomeClient2::get_status_by_ID(std::string szLocationId)
+{
+	if (m_vLocations.size() == 0)
+		return false;
+	int numLocations = static_cast<int>(m_vLocations.size());
+	for (int i = 0; i < numLocations; i++)
+	{
+		if (m_vLocations[i].szLocationId == szLocationId)
+			return get_status(i);
+	}
+	return false;
+}
+
 /************************************************************************
  *									*
  *	Locate Evohome elements						*
@@ -573,10 +555,10 @@ evohome::device::location *EvohomeClient2::get_location_by_ID(std::string szLoca
 	if (m_vLocations.size() == 0)
 		full_installation();
 	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int l = 0; l < numLocations; l++)
+	for (int il = 0; il < numLocations; il++)
 	{
-		if (m_vLocations[l].szLocationId == szLocationId)
-			return &m_vLocations[l];
+		if (m_vLocations[il].szLocationId == szLocationId)
+			return &m_vLocations[il];
 	}
 	return NULL;
 }
@@ -587,13 +569,13 @@ evohome::device::gateway *EvohomeClient2::get_gateway_by_ID(std::string szGatewa
 	if (m_vLocations.size() == 0)
 		full_installation();
 	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int l = 0; l < numLocations; l++)
+	for (int il = 0; il < numLocations; il++)
 	{
-		int numGateways = static_cast<int>(m_vLocations[l].gateways.size());
-		for (int g = 0; g < numGateways; g++)
+		int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
+		for (int igw = 0; igw < numGateways; igw++)
 		{
-			if (m_vLocations[l].gateways[g].szGatewayId == szGatewayId)
-				return &m_vLocations[l].gateways[g];
+			if (m_vLocations[il].gateways[igw].szGatewayId == szGatewayId)
+				return &m_vLocations[il].gateways[igw];
 		}
 	}
 	return NULL;
@@ -605,16 +587,16 @@ evohome::device::temperatureControlSystem *EvohomeClient2::get_temperatureContro
 	if (m_vLocations.size() == 0)
 		full_installation();
 	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int l = 0; l < numLocations; l++)
+	for (int il = 0; il < numLocations; il++)
 	{
-		int numGateways = static_cast<int>(m_vLocations[l].gateways.size());
-		for (int g = 0; g < numGateways; g++)
+		int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
+		for (int igw = 0; igw < numGateways; igw++)
 		{
-			int numTCSs = static_cast<int>(m_vLocations[l].gateways[g].temperatureControlSystems.size());
-			for (int t = 0; t < numTCSs; t++)
+			int numTCSs = static_cast<int>(m_vLocations[il].gateways[igw].temperatureControlSystems.size());
+			for (int itcs = 0; itcs < numTCSs; itcs++)
 			{
-				if (m_vLocations[l].gateways[g].temperatureControlSystems[t].szSystemId == szSystemId)
-					return &m_vLocations[l].gateways[g].temperatureControlSystems[t];
+				if (m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].szSystemId == szSystemId)
+					return &m_vLocations[il].gateways[igw].temperatureControlSystems[itcs];
 			}
 		}
 	}
@@ -627,24 +609,24 @@ evohome::device::zone *EvohomeClient2::get_zone_by_ID(std::string szZoneId)
 	if (m_vLocations.size() == 0)
 		full_installation();
 	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int l = 0; l < numLocations; l++)
+	for (int il = 0; il < numLocations; il++)
 	{
-		int numGateways = static_cast<int>(m_vLocations[l].gateways.size());
-		for (int g = 0; g < numGateways; g++)
+		int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
+		for (int igw = 0; igw < numGateways; igw++)
 		{
-			int numTCSs = static_cast<int>(m_vLocations[l].gateways[g].temperatureControlSystems.size());
-			for (int t = 0; t < numTCSs; t++)
+			int numTCSs = static_cast<int>(m_vLocations[il].gateways[igw].temperatureControlSystems.size());
+			for (int itcs = 0; itcs < numTCSs; itcs++)
 			{
-				int numZones = static_cast<int>(m_vLocations[l].gateways[g].temperatureControlSystems[t].zones.size());
-				for (int z = 0; z < numZones; z++)
+				int numZones = static_cast<int>(m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].zones.size());
+				for (int iz = 0; iz < numZones; iz++)
 				{
-					if (m_vLocations[l].gateways[g].temperatureControlSystems[t].zones[z].szZoneId == szZoneId)
-						return &m_vLocations[l].gateways[g].temperatureControlSystems[t].zones[z];
+					if (m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].zones[iz].szZoneId == szZoneId)
+						return &m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].zones[iz];
 				}
-				if (m_vLocations[l].gateways[g].temperatureControlSystems[t].dhw.size() > 0)
+				if (m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].dhw.size() > 0)
 				{
-					if (m_vLocations[l].gateways[g].temperatureControlSystems[t].dhw[0].szZoneId == szZoneId)
-						return &m_vLocations[l].gateways[g].temperatureControlSystems[t].dhw[0];
+					if (m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].dhw[0].szZoneId == szZoneId)
+						return &m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].dhw[0];
 				}
 			}
 		}
@@ -655,22 +637,21 @@ evohome::device::zone *EvohomeClient2::get_zone_by_ID(std::string szZoneId)
 
 evohome::device::temperatureControlSystem *EvohomeClient2::get_zone_temperatureControlSystem(evohome::device::zone *zone)
 {
-	size_t l,g,t;
 	int numLocations = static_cast<int>(m_vLocations.size());
-	for (int l = 0; l < numLocations; l++)
+	for (int il = 0; il < numLocations; il++)
 	{
-		if (m_vLocations[l].szLocationId == zone->szLocationId)
+		if (m_vLocations[il].szLocationId == zone->szLocationId)
 		{
-			int numGateways = static_cast<int>(m_vLocations[l].gateways.size());
-			for (int g = 0; g < numGateways; g++)
+			int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
+			for (int igw = 0; igw < numGateways; igw++)
 			{
-				if (m_vLocations[l].gateways[g].szGatewayId == zone->szGatewayId)
+				if (m_vLocations[il].gateways[igw].szGatewayId == zone->szGatewayId)
 				{
-					int numTCSs = static_cast<int>(m_vLocations[l].gateways[g].temperatureControlSystems.size());
-					for (int t = 0; t < numTCSs; t++)
+					int numTCSs = static_cast<int>(m_vLocations[il].gateways[igw].temperatureControlSystems.size());
+					for (int itcs = 0; itcs < numTCSs; itcs++)
 					{
-						if (m_vLocations[l].gateways[g].temperatureControlSystems[t].szSystemId == zone->szSystemId)
-							return &m_vLocations[l].gateways[g].temperatureControlSystems[t];
+						if (m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].szSystemId == zone->szSystemId)
+							return &m_vLocations[il].gateways[igw].temperatureControlSystems[itcs];
 					}
 				}
 			}
@@ -699,19 +680,12 @@ std::string EvohomeClient2::request_next_switchpoint(std::string szZoneId)
 	std::string szResponse;
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 
-	if (szResponse[0] == '[') // received unnamed array as reply
-	{
-		szResponse[0] = ' ';
-		int len = static_cast<int>(szResponse.size());
-		len--;
-		szResponse[len] = ' ';
-	}
-
 	Json::Value jSwitchPoint;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jSwitchPoint, nullptr) || !jSwitchPoint.isMember("time"))
+	if (evohome::parse_json_string(szResponse, jSwitchPoint) < 0)
+	{
+		m_szLastError = "Failed to parse server response as JSON";
 		return "";
+	}
 
 	std::string szSwitchpoint = jSwitchPoint["time"].asString();
 	szSwitchpoint.append("Z");
@@ -746,9 +720,7 @@ bool EvohomeClient2::get_zone_schedule_ex(const std::string szZoneId, const std:
 	if (zone == NULL)
 		return false;
 
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &zone->schedule, nullptr))
+	if (evohome::parse_json_string(szResponse, zone->schedule) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -761,7 +733,7 @@ bool EvohomeClient2::get_zone_schedule_ex(const std::string szZoneId, const std:
  * Find a zone's next switchpoint (localtime)
  *
  * Returns ISO datatime string relative to localtime (hardcoded as timezone 'A')
- * Extended function also fills current_setpoint with the current target temperature
+ * Extended function also fills szCurrentSetpoint with the current target temperature
  */
 std::string EvohomeClient2::get_next_switchpoint(std::string szZoneId)
 {
@@ -791,10 +763,10 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *hz)
 }
 std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule)
 {
-	std::string current_setpoint;
-	return get_next_switchpoint(jSchedule, current_setpoint, -1, false);
+	std::string szCurrentSetpoint;
+	return get_next_switchpoint(jSchedule, szCurrentSetpoint, -1, false);
 }
-std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday, bool convert_to_utc)
+std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday, bool convert_to_utc)
 {
 	if (jSchedule.isNull())
 		return "";
@@ -811,7 +783,7 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 	std::string szDatetime = std::string(cDate);
 	if (szDatetime <= jSchedule["nextSwitchpoint"].asString()) // our current cached values are still valid
 	{
-		current_setpoint = jSchedule["currentSetpoint"].asString();
+		szCurrentSetpoint = jSchedule["currentSetpoint"].asString();
 		if (convert_to_utc)
 			return local_to_utc(jSchedule["nextSwitchpoint"].asString());
 		else
@@ -820,26 +792,28 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 
 	std::string szTime;
 	bool found = false;
-	current_setpoint = "";
+	szCurrentSetpoint = "";
 	for (uint8_t d = 0; ((d < 7) && !found); d++)
 	{
-		int tryday = (wday + d) % 7;
-		std::string s_tryday = (std::string)evohome::schedule::daynames[tryday];
-		Json::Value *j_day;
+		int tryDay = (wday + d) % 7;
+		std::string szTryDay = (std::string)evohome::schedule::daynames[tryDay];
+		Json::Value *jDaySchedule;
 		// find day
-		for (size_t i = 0; ((i < jSchedule["dailySchedules"].size()) && !found); i++)
+		int numSchedules = static_cast<int>(jSchedule["dailySchedules"].size());
+		for (int i = 0; ((i < numSchedules) && !found); i++)
 		{
-			j_day = &jSchedule["dailySchedules"][(int)(i)];
-			if (((*j_day).isMember("dayOfWeek")) && ((*j_day)["dayOfWeek"] == s_tryday))
+			jDaySchedule = &jSchedule["dailySchedules"][i];
+			if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
 				found = true;
 		}
 		if (!found)
 			continue;
 
 		found = false;
-		for (size_t i = 0; ((i < (*j_day)["switchpoints"].size()) && !found); ++i)
+		int numSwitchpoints = static_cast<int>((*jDaySchedule)["switchpoints"].size());
+		for (int i = 0; ((i < numSwitchpoints) && !found); ++i)
 		{
-			szTime = (*j_day)["switchpoints"][(int)(i)]["timeOfDay"].asString();
+			szTime = (*jDaySchedule)["switchpoints"][i]["timeOfDay"].asString();
 			ltime.tm_isdst = -1;
 			ltime.tm_year = year;
 			ltime.tm_mon = month;
@@ -850,40 +824,41 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 			time_t ntime = mktime(&ltime);
 			if (ntime > now)
 				found = true;
-			else if ((*j_day)["switchpoints"][(int)(i)].isMember("temperature"))
-				current_setpoint = (*j_day)["switchpoints"][(int)(i)]["temperature"].asString();
+			else if ((*jDaySchedule)["switchpoints"][i].isMember("temperature"))
+				szCurrentSetpoint = (*jDaySchedule)["switchpoints"][i]["temperature"].asString();
 			else
-				current_setpoint = (*j_day)["switchpoints"][(int)(i)]["dhwState"].asString();
+				szCurrentSetpoint = (*jDaySchedule)["switchpoints"][i]["dhwState"].asString();
 		}
 	}
 
-	if (current_setpoint.empty()) // got a direct match for the next switchpoint, need to go back in time to find the current setpoint
+	if (szCurrentSetpoint.empty()) // got a direct match for the next switchpoint, need to go back in time to find the current setpoint
 	{
 		found = false;
 		for (uint8_t d = 1; ((d < 7) && !found); d++)
 		{
-			int tryday = (wday - d + 7) % 7;
-			std::string s_tryday = (std::string)evohome::schedule::daynames[tryday];
-			Json::Value *j_day;
+			int tryDay = (wday - d + 7) % 7;
+			std::string szTryDay = (std::string)evohome::schedule::daynames[tryDay];
+			Json::Value *jDaySchedule;
 			// find day
-			for (size_t i = 0; ((i < jSchedule["dailySchedules"].size()) && !found); i++)
+			int numSchedules = static_cast<int>(jSchedule["dailySchedules"].size());
+			for (int i = 0; ((i < numSchedules) && !found); i++)
 			{
-				j_day = &jSchedule["dailySchedules"][(int)(i)];
-				if (((*j_day).isMember("dayOfWeek")) && ((*j_day)["dayOfWeek"] == s_tryday))
+				jDaySchedule = &jSchedule["dailySchedules"][i];
+				if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
 					found = true;
 			}
 			if (!found)
 				continue;
 
 			found = false;
-			size_t l = (*j_day)["switchpoints"].size();
-			if (l > 0)
+			int j = static_cast<int>((*jDaySchedule)["switchpoints"].size());
+			if (j > 0)
 			{
-				l--;
-				if ((*j_day)["switchpoints"][(int)(l)].isMember("temperature"))
-					current_setpoint = (*j_day)["switchpoints"][(int)(l)]["temperature"].asString();
+				j--;
+				if ((*jDaySchedule)["switchpoints"][j].isMember("temperature"))
+					szCurrentSetpoint = (*jDaySchedule)["switchpoints"][j]["temperature"].asString();
 				else
-					current_setpoint = (*j_day)["switchpoints"][(int)(l)]["dhwState"].asString();
+					szCurrentSetpoint = (*jDaySchedule)["switchpoints"][j]["dhwState"].asString();
 				found = true;
 			}
 		}
@@ -894,7 +869,7 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 
 	sprintf_s(cDate, 30, "%04d-%02d-%02dT%sA", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, szTime.c_str()); // localtime => use CET to indicate that it is not UTC
 	szDatetime = std::string(cDate);
-	jSchedule["currentSetpoint"] = current_setpoint;
+	jSchedule["currentSetpoint"] = szCurrentSetpoint;
 	jSchedule["nextSwitchpoint"] = szDatetime;
 	if (convert_to_utc)
 		return local_to_utc(szDatetime);
@@ -907,7 +882,7 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
  * Find a zone's next switchpoint (UTC)
  *
  * Returns ISO datatime string relative to UTZ (timezone 'Z')
- * Extended function also fills current_setpoint with the current target temperature
+ * Extended function also fills szCurrentSetpoint with the current target temperature
  */
 std::string EvohomeClient2::get_next_utcswitchpoint(std::string szZoneId)
 {
@@ -937,12 +912,12 @@ std::string EvohomeClient2::get_next_utcswitchpoint(evohome::device::zone *hz)
 }
 std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule)
 {
-	std::string current_setpoint;
-	return get_next_switchpoint(jSchedule, current_setpoint, -1, true);
+	std::string szCurrentSetpoint;
+	return get_next_switchpoint(jSchedule, szCurrentSetpoint, -1, true);
 }
-std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday)
+std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday)
 {
-	return get_next_switchpoint(jSchedule, current_setpoint, force_weekday, true);
+	return get_next_switchpoint(jSchedule, szCurrentSetpoint, force_weekday, true);
 }
 
 
@@ -955,49 +930,49 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 	std::ofstream myfile (szFilename.c_str(), std::ofstream::trunc);
 	if ( myfile.is_open() )
 	{
-		Json::Value j_sched;
+		Json::Value jBackupSchedule;
 
 		int numLocations = static_cast<int>(m_vLocations.size());
 		for (int il = 0; il < numLocations; il++)
 		{
-			Json::Value *j_loc = m_vLocations[il].jInstallationInfo;
-			std::string s_locId = (*j_loc)["locationInfo"]["locationId"].asString();
-			if (s_locId.empty())
+			Json::Value *jLocation = m_vLocations[il].jInstallationInfo;
+			std::string szLocationId = (*jLocation)["locationInfo"]["locationId"].asString();
+			if (szLocationId.empty())
 				continue;
 
-			Json::Value j_locsched;
-			j_locsched["locationId"] = s_locId;
-			j_locsched["name"] = (*j_loc)["locationInfo"]["name"].asString();
+			Json::Value jBackupScheduleLocation;
+			jBackupScheduleLocation["locationId"] = szLocationId;
+			jBackupScheduleLocation["name"] = (*jLocation)["locationInfo"]["name"].asString();
 
 			int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
 			for (int igw = 0; igw < numGateways; igw++)
 			{
-				Json::Value *j_gw = m_vLocations[il].gateways[igw].jInstallationInfo;
-				std::string s_gwId = (*j_gw)["gatewayInfo"]["gatewayId"].asString();
-				if (s_gwId.empty())
+				Json::Value *jGateway = m_vLocations[il].gateways[igw].jInstallationInfo;
+				std::string szGatewayId = (*jGateway)["gatewayInfo"]["gatewayId"].asString();
+				if (szGatewayId.empty())
 					continue;
 
-				Json::Value j_gwsched;
-				j_gwsched["gatewayId"] = s_gwId;
+				Json::Value jBackupScheduleGateway;
+				jBackupScheduleGateway["gatewayId"] = szGatewayId;
 
 				int numTCSs = static_cast<int>(m_vLocations[il].gateways[igw].temperatureControlSystems.size());
 				for (int itcs = 0; itcs < numTCSs; itcs++)
 				{
-					Json::Value *j_tcs = m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].jInstallationInfo;
-					std::string s_tcsId = (*j_tcs)["systemId"].asString();
+					Json::Value *jTCS = m_vLocations[il].gateways[igw].temperatureControlSystems[itcs].jInstallationInfo;
+					std::string szTCSId = (*jTCS)["systemId"].asString();
 
-					if (s_tcsId.empty())
+					if (szTCSId.empty())
 						continue;
 
-					Json::Value j_tcssched;
-					j_tcssched["systemId"] = s_tcsId;
-					if (!(*j_tcs)["zones"].isArray())
+					Json::Value jBackupScheduleTCS;
+					jBackupScheduleTCS["systemId"] = szTCSId;
+					if (!(*jTCS)["zones"].isArray())
 						continue;
 
-					int numZones = static_cast<int>((*j_tcs)["zones"].size());
+					int numZones = static_cast<int>((*jTCS)["zones"].size());
 					for (int iz = 0; iz < numZones; iz++)
 					{
-						std::string szZoneId = (*j_tcs)["zones"][(int)(iz)]["zoneId"].asString();
+						std::string szZoneId = (*jTCS)["zones"][iz]["zoneId"].asString();
 						if (szZoneId.empty())
 							continue;
 
@@ -1010,30 +985,31 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 						if (!szResponse.find("\"id\""))
 							continue;
 
-						Json::Value j_week;
-						Json::CharReaderBuilder jBuilder;
-						std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-						if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &j_week, nullptr))
+						Json::Value jDailySchedule;
+						if (evohome::parse_json_string(szResponse, jDailySchedule) < 0)
+						{
+							m_szLastError = "Failed to parse server response as JSON";
 							continue;
+						}
 
-						Json::Value j_zonesched;
-						j_zonesched["zoneId"] = szZoneId;
-						j_zonesched["name"] = (*j_tcs)["zones"][(int)(iz)]["name"].asString();
-						if (j_week["dailySchedules"].isArray())
-							j_zonesched["dailySchedules"] = j_week["dailySchedules"];
+						Json::Value jBackupScheduleZone;
+						jBackupScheduleZone["zoneId"] = szZoneId;
+						jBackupScheduleZone["name"] = (*jTCS)["zones"][iz]["name"].asString();
+						if (jDailySchedule["dailySchedules"].isArray())
+							jBackupScheduleZone["dailySchedules"] = jDailySchedule["dailySchedules"];
 						else
-							j_zonesched["dailySchedules"] = Json::arrayValue;
-						j_tcssched[szZoneId] = j_zonesched;
+							jBackupScheduleZone["dailySchedules"] = Json::arrayValue;
+						jBackupScheduleTCS[szZoneId] = jBackupScheduleZone;
 					}
 // Hot Water
 					if (has_dhw(il, igw, itcs))
 					{
-						std::string s_dhwId = (*j_tcs)["dhw"]["dhwId"].asString();
-						if (s_dhwId.empty())
+						std::string szHotWaterId = (*jTCS)["dhw"]["dhwId"].asString();
+						if (szHotWaterId.empty())
 							continue;
 
 						std::string szUrl = EVOHOME_HOST"/WebAPI/emea/api/v1/domesticHotWater/";
-						szUrl.append(s_dhwId);
+						szUrl.append(szHotWaterId);
 						szUrl.append("/schedule");
 						std::string szResponse;
 						EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
@@ -1041,28 +1017,29 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 						if ( ! szResponse.find("\"id\""))
 							return false;
 
-						Json::Value j_week;
-						Json::CharReaderBuilder jBuilder;
-						std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-						if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &j_week, nullptr))
+						Json::Value jDailySchedule;
+						if (evohome::parse_json_string(szResponse, jDailySchedule) < 0)
+						{
+							m_szLastError = "Failed to parse server response as JSON";
 							continue;
+						}
 
 						Json::Value j_dhwsched;
-						j_dhwsched["dhwId"] = s_dhwId;
-						if (j_week["dailySchedules"].isArray())
-							j_dhwsched["dailySchedules"] = j_week["dailySchedules"];
+						j_dhwsched["dhwId"] = szHotWaterId;
+						if (jDailySchedule["dailySchedules"].isArray())
+							j_dhwsched["dailySchedules"] = jDailySchedule["dailySchedules"];
 						else
 							j_dhwsched["dailySchedules"] = Json::arrayValue;
-						j_tcssched[s_dhwId] = j_dhwsched;
+						jBackupScheduleTCS[szHotWaterId] = j_dhwsched;
 					}
-					j_gwsched[s_tcsId] = j_tcssched;
+					jBackupScheduleGateway[szTCSId] = jBackupScheduleTCS;
 				}
-				j_locsched[s_gwId] = j_gwsched;
+				jBackupScheduleLocation[szGatewayId] = jBackupScheduleGateway;
 			}
-			j_sched[s_locId] = j_locsched;
+			jBackupSchedule[szLocationId] = jBackupScheduleLocation;
 		}
 
-		myfile << j_sched.toStyledString() << "\n";
+		myfile << jBackupSchedule.toStyledString() << "\n";
 		myfile.close();
 		return true;
 	}
@@ -1090,36 +1067,48 @@ bool EvohomeClient2::read_schedules_from_file(const std::string &szFilename)
 	if (szFileContent == "")
 		return false;
 
-	Json::Value j_sched;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szFileContent.c_str(), szFileContent.c_str() + szFileContent.size(), &j_sched, nullptr))
-		return false;
+	Json::Value jSchedule;
 
-
-	Json::Value::Members locations = j_sched.getMemberNames();
-	for (size_t l = 0; l < m_vLocations.size(); l++)
+	if (evohome::parse_json_string(szFileContent, jSchedule) < 0)
 	{
-		if (j_sched[locations[l]].isString())
+		m_szLastError = "Failed to parse server response as JSON";
+		return false;
+	}
+
+	Json::Value::Members locations = jSchedule.getMemberNames();
+	int numLocations = static_cast<int>(m_vLocations.size());
+	for (int il = 0; il < numLocations; il++)
+	{
+		if (jSchedule[locations[il]].isString())
 			continue;
-		Json::Value::Members gateways = j_sched[locations[l]].getMemberNames();
-		for (size_t g = 0; g < gateways.size(); g++)
+		Json::Value::Members gateways = jSchedule[locations[il]].getMemberNames();
+
+		int numGateways = static_cast<int>(gateways.size());
+		for (int igw = 0; igw < numGateways; igw++)
 		{
-			if (j_sched[locations[l]][gateways[g]].isString())
+			if (jSchedule[locations[il]][gateways[igw]].isString())
 				continue;
-			Json::Value::Members temperatureControlSystems = j_sched[locations[l]][gateways[g]].getMemberNames();
-			for (size_t t = 0; t < temperatureControlSystems.size(); t++)
+
+			Json::Value *j_gw = &jSchedule[locations[il]][gateways[igw]];
+			Json::Value::Members temperatureControlSystems = (*j_gw).getMemberNames();
+
+			int numTCS = static_cast<int>(temperatureControlSystems.size());
+			for (int itcs = 0; itcs < numTCS; itcs++)
 			{
-				if (j_sched[locations[l]][gateways[g]][temperatureControlSystems[t]].isString())
+				if ((*j_gw)[temperatureControlSystems[itcs]].isString())
 					continue;
-				Json::Value::Members zones = j_sched[locations[l]][gateways[g]][temperatureControlSystems[t]].getMemberNames();
-				for (size_t z = 0; z < zones.size(); z++)
+
+				Json::Value *j_tcs = &(*j_gw)[temperatureControlSystems[itcs]];
+				Json::Value::Members zones = (*j_tcs).getMemberNames();
+
+				int numZones = static_cast<int>(zones.size());
+				for (int iz = 0; iz < numZones; iz++)
 				{
-					if (j_sched[locations[l]][gateways[g]][temperatureControlSystems[t]][zones[z]].isString())
+					if ((*j_tcs)[zones[iz]].isString())
 						continue;
-					evohome::device::zone *zone = get_zone_by_ID(zones[z]);
+					evohome::device::zone *zone = get_zone_by_ID(zones[iz]);
 					if (zone != NULL)
-						zone->schedule = j_sched[locations[l]][gateways[g]][temperatureControlSystems[t]][zones[z]];
+						zone->schedule = (*j_tcs)[zones[iz]];
 				}
 			}
 		}
@@ -1186,29 +1175,36 @@ bool EvohomeClient2::schedules_restore(const std::string &szFilename)
 		return false;
 
 	std::cout << "Restoring schedules from file " << szFilename << "\n";
-	unsigned int l,g,t,z;
-	for (l = 0; l < m_vLocations.size(); l++)
+
+	int numLocations = static_cast<int>(m_vLocations.size());
+	for (int il = 0; il < numLocations; il++)
 	{
-		std::cout << "  Location: " << m_vLocations[l].szLocationId << "\n";
+		std::cout << "  Location: " << m_vLocations[il].szLocationId << "\n";
 
-		for (g = 0; g < m_vLocations[l].gateways.size(); g++)
+		int numGateways = static_cast<int>(m_vLocations[il].gateways.size());
+		for (int igw = 0; igw < numGateways; igw++)
 		{
-			std::cout << "    Gateway: " << m_vLocations[l].gateways[g].szGatewayId << "\n";
+			evohome::device::gateway *gw = &m_vLocations[il].gateways[igw];
+			std::cout << "    Gateway: " << (*gw).szGatewayId << "\n";
 
-			for (t = 0; t < m_vLocations[l].gateways[g].temperatureControlSystems.size(); t++)
+			int numTCS = static_cast<int>((*gw).temperatureControlSystems.size());
+			for (int itcs = 0; itcs < numTCS; itcs++)
 			{
-				std::cout << "      System: " << m_vLocations[l].gateways[g].temperatureControlSystems[t].szSystemId << "\n";
+				evohome::device::temperatureControlSystem *tcs = &(*gw).temperatureControlSystems[itcs];
+				std::cout << "      System: " << (*tcs).szSystemId << "\n";
 
-				for (z = 0; z < m_vLocations[l].gateways[g].temperatureControlSystems[t].zones.size(); z++)
+				int numZones = static_cast<int>((*tcs).zones.size());
+				for (int iz = 0; iz < numZones; iz++)
 				{
-					std::cout << "        Zone: " << (*m_vLocations[l].gateways[g].temperatureControlSystems[t].zones[z].jInstallationInfo)["name"].asString() << "\n";
-					set_zone_schedule(m_vLocations[l].gateways[g].temperatureControlSystems[t].zones[z].szZoneId, &m_vLocations[l].gateways[g].temperatureControlSystems[t].zones[z].schedule);
+					evohome::device::zone *zone = &(*tcs).zones[iz];
+					std::cout << "        Zone: " << (*(*zone).jInstallationInfo)["name"].asString() << "\n";
+					set_zone_schedule((*zone).szZoneId, &(*zone).schedule);
 				}
-				if (has_dhw(&m_vLocations[l].gateways[g].temperatureControlSystems[t]))
+				if (has_dhw(tcs))
 				{
-					std::string dhwId = (*m_vLocations[l].gateways[g].temperatureControlSystems[t].jStatus)["dhw"]["dhwId"].asString();
+					std::string dhwId = (*(*tcs).jStatus)["dhw"]["dhwId"].asString();
 					std::cout << "        Hot water\n";
-					set_dhw_schedule(dhwId, &m_vLocations[l].gateways[g].temperatureControlSystems[t].dhw[0].schedule);
+					set_dhw_schedule(dhwId, &(*tcs).dhw[0].schedule);
 				}
 			}
 		}
@@ -1469,8 +1465,7 @@ bool EvohomeClient2::cancel_temperature_override(std::string szZoneId)
 
 bool EvohomeClient2::has_dhw(int location, int gateway, int temperatureControlSystem)
 {
-	evohome::device::temperatureControlSystem *tcs = &m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
-	return has_dhw(tcs);
+	return has_dhw(&m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem]);
 }
 bool EvohomeClient2::has_dhw(evohome::device::temperatureControlSystem *tcs)
 {

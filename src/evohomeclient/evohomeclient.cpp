@@ -18,6 +18,7 @@
 #include <stdexcept>
 
 #include "connection/EvoHTTPBridge.hpp"
+#include "evohome/jsoncppbridge.hpp"
 
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
@@ -97,23 +98,11 @@ bool EvohomeClient::login(const std::string &user, const std::string &password)
 	std::string szUrl = EVOHOME_HOST"/WebAPI/api/Session";
 	std::string szResponse;
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
-
-	if (szResponse[0] == '[') // received unnamed array as reply
-	{
-		szResponse[0] = ' ';
-		size_t len = szResponse.size();
-		len--;
-		szResponse[len] = ' ';
-	}
+	m_tLastWebCall = time(NULL);
 
 	Json::Value jLogin;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szResponse.c_str(), szResponse.c_str() + szResponse.size(), &jLogin, nullptr))
-	{
-		m_szLastError = "Failed to parse server response as JSON";
+	if (evohome::parse_json_string(szResponse, jLogin) < 0)
 		return false;
-	}
 
 	std::string szError = "";
 	if (jLogin.isMember("error"))
@@ -230,6 +219,7 @@ bool EvohomeClient::full_installation()
 	szUrl.append("&allData=True");
 	std::string szResponse;
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	m_tLastWebCall = time(NULL);
 
 	// evohome old API returns an unnamed json array which is not accepted by our parser
 	szResponse.insert(0, "{\"locations\": ");
@@ -263,54 +253,42 @@ bool EvohomeClient::full_installation()
 /* 
  * Extract a zone's temperature from system status
  */
-std::string EvohomeClient::get_zone_temperature(std::string locationId, std::string zoneId, int decimals)
+std::string EvohomeClient::get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const int numDecimals)
 {
 	if ((m_vLocations.size() == 0) && (!full_installation()))
 		return "";
 
-	int multiplier = (decimals >= 2) ? 100:10;
-
-	for (size_t iloc = 0; iloc < m_vLocations.size(); iloc++)
+	int numLocations = static_cast<int>(m_vLocations.size());
+	for (int iloc = 0; iloc < numLocations; iloc++)
 	{
-		Json::Value *j_loc = m_vLocations[iloc].jInstallationInfo;
-		if (!(*j_loc).isMember("devices") || !(*j_loc)["devices"].isArray())
+		Json::Value *jLocation = m_vLocations[iloc].jInstallationInfo;
+		if (!(*jLocation).isMember("devices") || !(*jLocation)["devices"].isArray())
 			continue;
 
-		for (size_t idev = 0; idev < (*j_loc)["devices"].size(); idev++)
+		int numDevices = static_cast<int>((*jLocation)["devices"].size());
+		for (int idev = 0; idev < numDevices; idev++)
 		{
-			Json::Value *j_dev = &(*j_loc)["devices"][(int)(idev)];
-			if (!(*j_dev).isMember("deviceID") || !(*j_dev).isMember("thermostat") || !(*j_dev)["thermostat"].isMember("indoorTemperature"))
+			Json::Value *jDevice = &(*jLocation)["devices"][idev];
+			if (!(*jDevice).isMember("deviceID") || !(*jDevice).isMember("thermostat") || !(*jDevice)["thermostat"].isMember("indoorTemperature"))
 				continue;
-			if ((*j_dev).isMember("locationID") && ((*j_dev)["locationID"].asString() != locationId))
+			if ((*jDevice).isMember("locationID") && ((*jDevice)["locationID"].asString() != szLocationId))
 			{
 				idev = 128; // move to next location
 				continue;
 			}
-			if ((*j_dev)["deviceID"].asString() != zoneId)
+			if ((*jDevice)["deviceID"].asString() != szZoneId)
 				continue;
 
-			double temperature = (*j_dev)["thermostat"]["indoorTemperature"].asDouble();
+			double temperature = (*jDevice)["thermostat"]["indoorTemperature"].asDouble();
 			if (temperature > 127) // allow rounding error
 				return "128"; // unit is offline
 
-			// limit output to two decimals
-			std::stringstream sstemp;
-			sstemp << ((floor((temperature *multiplier) + 0.5) / multiplier) + 0.0001);
-			std::string sztemp = sstemp.str();
-
-			sstemp.str("");
-			bool found = false;
-			int i;
-			for (i = 0; (i < 6) && !found; i++)
-			{
-				sstemp << sztemp[i];
-				if (sztemp[i] == '.')
-					found = true;
-			}
-			sstemp << sztemp[i];
-			if (decimals > 1)
-				sstemp << sztemp[i+1];
-			return sstemp.str();
+			static char cTemperature[10];
+			if (numDecimals < 2)
+				sprintf(cTemperature, "%.01f", ((floor((temperature * 10) + 0.5) / 10) + 0.0001));
+			else			
+				sprintf(cTemperature, "%.02f", ((floor((temperature * 100) + 0.5) / 100) + 0.0001));
+			return std::string(cTemperature);
 		}
 	}
 	return "";

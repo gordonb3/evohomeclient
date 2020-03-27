@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 #include "jsoncpp/json.h"
-#include "evohome/devices.h"
+#include "evohome/devices.hpp"
 
 
 class EvohomeClient2
@@ -33,7 +33,8 @@ public:
 
 	bool full_installation();
 	bool get_status(int location);
-	bool get_status(std::string locationId);
+
+	bool get_status_by_ID(std::string locationId);
 
 	evohome::device::location *get_location_by_ID(std::string locationId);
 	evohome::device::gateway *get_gateway_by_ID(std::string gatewayId);
@@ -59,13 +60,13 @@ public:
 	std::string get_next_switchpoint(evohome::device::zone *hz);
 	std::string get_next_switchpoint(std::string szZoneId);
 	std::string get_next_switchpoint(Json::Value &jSchedule);
-	std::string get_next_switchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday = -1, bool convert_to_utc = false);
+	std::string get_next_switchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday = -1, bool convert_to_utc = false);
 
 	std::string get_next_utcswitchpoint(evohome::device::temperatureControlSystem *tcs, int zone);
 	std::string get_next_utcswitchpoint(evohome::device::zone *hz);
 	std::string get_next_utcswitchpoint(std::string szZoneId);
 	std::string get_next_utcswitchpoint(Json::Value &jSchedule);
-	std::string get_next_utcswitchpoint(Json::Value &jSchedule, std::string &current_setpoint, int force_weekday = -1);
+	std::string get_next_utcswitchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday = -1);
 
 	bool set_system_mode(const std::string systemId, const int mode, const std::string date_until = "");
 	bool set_system_mode(const std::string systemId, const std::string mode, const std::string date_until = "");
@@ -105,10 +106,10 @@ private:
 	void init();
 	bool user_account();
 
-	void get_gateways(int location);
-	void get_temperatureControlSystems(int location, int gateway);
-	void get_zones(int location, int gateway, int temperatureControlSystem);
-	void get_dhw(int location, int gateway, int temperatureControlSystem);
+	void get_gateways(const int location);
+	void get_temperatureControlSystems(const int location, const int gateway);
+	void get_zones(const int location, const int gateway, const int temperatureControlSystem);
+	void get_dhw(const int location, const int gateway, const int temperatureControlSystem);
 
 	bool get_zone_schedule_ex(const std::string szZoneId, const std::string szZoneType);
 	bool set_zone_schedule_ex(const std::string szZoneId, const std::string zoneType, Json::Value *jSchedule);
