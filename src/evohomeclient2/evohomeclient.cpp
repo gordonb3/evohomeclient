@@ -235,7 +235,7 @@ bool EvohomeClient2::save_auth_to_file(const std::string &szFilename)
 
 		jAuth["access_token"] = m_szAccessToken;
 		jAuth["refresh_token"] = m_szRefreshToken;
-		jAuth["expiration_time"] = m_tTokenExpirationTime;
+		jAuth["expiration_time"] = static_cast<int>(m_tTokenExpirationTime);
 
 		myfile << jAuth.toStyledString() << "\n";
 		myfile.close();
