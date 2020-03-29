@@ -199,7 +199,7 @@ bool EvoHTTPBridge::ProcessResponse(std::string &szResponse, const std::vector<s
 		else
 			szTemp.append("-1");
 		szTemp.append("\",\"message\":\"");
-		size_t i = 0;
+		int i = 0;
 		char* html = &szResponse[0];
 		char c;
 		while (i < static_cast<int>(szResponse.size()))

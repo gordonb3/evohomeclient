@@ -163,7 +163,7 @@ bool HTTPClient_Base::ExecuteBinary(const connection::HTTP::method::value eMetho
 			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
 
 		struct curl_slist *headers = NULL;
-		if ((&vExtraHeaders != nullptr) && (vExtraHeaders.size() > 0))
+		if (vExtraHeaders.size() > 0)
 		{
 			std::vector<std::string>::const_iterator itt;
 			for (itt = vExtraHeaders.begin(); itt != vExtraHeaders.end(); ++itt)

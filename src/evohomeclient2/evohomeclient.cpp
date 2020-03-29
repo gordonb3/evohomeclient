@@ -1024,13 +1024,13 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							continue;
 						}
 
-						Json::Value j_dhwsched;
-						j_dhwsched["dhwId"] = szHotWaterId;
+						Json::Value jBackupScheduleDHW;
+						jBackupScheduleDHW["dhwId"] = szHotWaterId;
 						if (jDailySchedule["dailySchedules"].isArray())
-							j_dhwsched["dailySchedules"] = jDailySchedule["dailySchedules"];
+							jBackupScheduleDHW["dailySchedules"] = jDailySchedule["dailySchedules"];
 						else
-							j_dhwsched["dailySchedules"] = Json::arrayValue;
-						jBackupScheduleTCS[szHotWaterId] = j_dhwsched;
+							jBackupScheduleDHW["dailySchedules"] = Json::arrayValue;
+						jBackupScheduleTCS[szHotWaterId] = jBackupScheduleDHW;
 					}
 					jBackupScheduleGateway[szTCSId] = jBackupScheduleTCS;
 				}
@@ -1089,26 +1089,26 @@ bool EvohomeClient2::read_schedules_from_file(const std::string &szFilename)
 			if (jSchedule[locations[il]][gateways[igw]].isString())
 				continue;
 
-			Json::Value *j_gw = &jSchedule[locations[il]][gateways[igw]];
-			Json::Value::Members temperatureControlSystems = (*j_gw).getMemberNames();
+			Json::Value *jGateway = &jSchedule[locations[il]][gateways[igw]];
+			Json::Value::Members temperatureControlSystems = (*jGateway).getMemberNames();
 
 			int numTCS = static_cast<int>(temperatureControlSystems.size());
 			for (int itcs = 0; itcs < numTCS; itcs++)
 			{
-				if ((*j_gw)[temperatureControlSystems[itcs]].isString())
+				if ((*jGateway)[temperatureControlSystems[itcs]].isString())
 					continue;
 
-				Json::Value *j_tcs = &(*j_gw)[temperatureControlSystems[itcs]];
-				Json::Value::Members zones = (*j_tcs).getMemberNames();
+				Json::Value *jTCS = &(*jGateway)[temperatureControlSystems[itcs]];
+				Json::Value::Members zones = (*jTCS).getMemberNames();
 
 				int numZones = static_cast<int>(zones.size());
 				for (int iz = 0; iz < numZones; iz++)
 				{
-					if ((*j_tcs)[zones[iz]].isString())
+					if ((*jTCS)[zones[iz]].isString())
 						continue;
 					evohome::device::zone *zone = get_zone_by_ID(zones[iz]);
 					if (zone != NULL)
-						zone->schedule = (*j_tcs)[zones[iz]];
+						zone->schedule = (*jTCS)[zones[iz]];
 				}
 			}
 		}
