@@ -130,7 +130,6 @@ bool EvohomeClient::login(const std::string &user, const std::string &password)
 
 	m_vEvoHeader.clear();
 	m_vEvoHeader.push_back(szAuthBearer);
-	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
 	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
 	return true;
@@ -194,7 +193,6 @@ bool EvohomeClient::load_auth_from_file(const std::string &szFilename)
 
 	m_vEvoHeader.clear();
 	m_vEvoHeader.push_back(szAuthBearer);
-	m_vEvoHeader.push_back("applicationId: 91db1612-73fd-4500-91b2-e63b069b185c");
 	m_vEvoHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
 
 	return true;

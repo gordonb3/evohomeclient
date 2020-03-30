@@ -107,22 +107,16 @@ std::string EvohomeClient2::get_last_error()
  *									*
  ************************************************************************/
 
-/*
- * Login to the evohome portal
- */
-bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassword)
+
+bool EvohomeClient2::obtain_access_token(const std::string &szCredentials)
 {
 	std::vector<std::string> vLoginHeader;
 	vLoginHeader.push_back("Authorization: Basic YjAxM2FhMjYtOTcyNC00ZGJkLTg4OTctMDQ4YjlhYWRhMjQ5OnRlc3Q=");
 	vLoginHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	vLoginHeader.push_back("charsets: utf-8");
 
 	std::string szPostdata = "installationInfo-Type=application%2Fx-www-form-urlencoded;charset%3Dutf-8&Host=rs.alarmnet.com%2F";
-	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive");
-	szPostdata.append("&grant_type=password&Username=");
-	szPostdata.append(EvoHTTPBridge::URLEncode(szUser));
-	szPostdata.append("&Password=");
-	szPostdata.append(EvoHTTPBridge::URLEncode(szPassword));
+	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive&");
+	szPostdata.append(szCredentials);
 
 	std::string szResponse;
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
@@ -156,12 +150,22 @@ bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassw
 
 	m_vEvoHeader.clear();
 	m_vEvoHeader.push_back(szAuthBearer);
-	m_vEvoHeader.push_back("applicationId: b013aa26-9724-4dbd-8897-048b9aada249");
 	m_vEvoHeader.push_back("accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	m_vEvoHeader.push_back("content-type: application/json");
-	m_vEvoHeader.push_back("charsets: utf-8");
 
 	return user_account();
+}
+
+/*
+ * Login to the evohome portal
+ */
+bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassword)
+{
+	std::string szCredentials = "grant_type=password&Username=";
+	szCredentials.append(EvoHTTPBridge::URLEncode(szUser));
+	szCredentials.append("&Password=");
+	szCredentials.append(EvoHTTPBridge::URLEncode(szPassword));
+
+	return obtain_access_token(szCredentials);
 }
 
 
@@ -170,56 +174,13 @@ bool EvohomeClient2::login(const std::string &szUser, const std::string &szPassw
  */
 bool EvohomeClient2::renew_login()
 {
-	std::vector<std::string> vLoginHeader;
-	vLoginHeader.push_back("Authorization: Basic YjAxM2FhMjYtOTcyNC00ZGJkLTg4OTctMDQ4YjlhYWRhMjQ5OnRlc3Q=");
-	vLoginHeader.push_back("Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	vLoginHeader.push_back("charsets: utf-8");
-
-	std::string szPostdata = "installationInfo-Type=application%2Fx-www-form-urlencoded;charset%3Dutf-8&Host=rs.alarmnet.com%2F";
-	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive");
-
-	szPostdata.append("&grant_type=refresh_token&refresh_token=");
-	szPostdata.append(m_szRefreshToken);
-
-
-	std::string szResponse;
-	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
-	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
-
-	Json::Value jLogin;
-	if (evohome::parse_json_string(szResponse, jLogin) < 0)
-	{
-		m_szLastError = "Failed to parse server response as JSON";
+	if (m_szRefreshToken.empty())
 		return false;
-	}
 
-	std::string szError = "";
-	if (jLogin.isMember("error"))
-		szError = jLogin["error"].asString();
-	if (jLogin.isMember("message"))
-		szError = jLogin["message"].asString();
-	if (!szError.empty())
-	{
-		m_szLastError = "login returned ";
-		m_szLastError.append(szError);
-		return false;
-	}
+	std::string szCredentials = "grant_type=refresh_token&refresh_token=";
+	szCredentials.append(m_szRefreshToken);
 
-	m_szAccessToken = jLogin["access_token"].asString();
-	m_szRefreshToken = jLogin["refresh_token"].asString();
-	m_tTokenExpirationTime = time(NULL) + atoi(jLogin["expires_in"].asString().c_str());
-
-	std::string szAuthBearer = "Authorization: bearer ";
-	szAuthBearer.append(m_szAccessToken);
-
-	m_vEvoHeader.clear();
-	m_vEvoHeader.push_back(szAuthBearer);
-	m_vEvoHeader.push_back("applicationId: b013aa26-9724-4dbd-8897-048b9aada249");
-	m_vEvoHeader.push_back("accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	m_vEvoHeader.push_back("content-type: application/json");
-	m_vEvoHeader.push_back("charsets: utf-8");
-
-	return user_account();
+	return obtain_access_token(szCredentials);
 }
 
 
@@ -281,10 +242,7 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 
 	m_vEvoHeader.clear();
 	m_vEvoHeader.push_back(szAuthBearer);
-	m_vEvoHeader.push_back("applicationId: b013aa26-9724-4dbd-8897-048b9aada249");
 	m_vEvoHeader.push_back("accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml");
-	m_vEvoHeader.push_back("content-type: application/json");
-	m_vEvoHeader.push_back("charsets: utf-8");
 
 	return user_account();
 }
@@ -413,9 +371,8 @@ bool EvohomeClient2::full_installation()
 {
 	std::vector<evohome::device::location>().swap(m_vLocations);
 
-	std::string szUrl = EVOHOME_HOST"/WebAPI/emea/api/v1/location/installationInfo?userId=";
+	std::string szUrl = EVOHOME_HOST"/WebAPI/emea/api/v1/location/installationInfo?includeTemperatureControlSystems=True&userId=";
 	szUrl.append(m_szUserId);
-	szUrl.append("&includeTemperatureControlSystems=True");
 	std::string szResponse;
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
 

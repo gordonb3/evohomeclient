@@ -29,7 +29,7 @@ public:
 	bool renew_login();
 	bool save_auth_to_file(const std::string &szFilename);
 	bool load_auth_from_file(const std::string &szFilename);
-
+	bool user_account();
 
 	bool full_installation();
 	bool get_status(int location);
@@ -104,7 +104,7 @@ private:
 	std::string m_szLastError;
 
 	void init();
-	bool user_account();
+	bool obtain_access_token(const std::string &szCredentials);
 
 	void get_gateways(const int location);
 	void get_temperatureControlSystems(const int location, const int gateway);
