@@ -14,24 +14,19 @@
 #include <cstring>
 #include <cstdlib>
 #include <time.h>
+#include "demo-defaults.hpp"
 #include "evohomeclient2/evohomeclient.h"
 
-
-#ifndef CONF_FILE
-#define CONF_FILE "evoconfig"
-#endif
 
 #ifndef BACKUP_FILE
 #define BACKUP_FILE "schedules.backup"
 #endif
 
 
-
 using namespace std;
 
 std::string backupfile;
 std::string configfile;
-std::map<std::string, std::string> evoconfig;
 
 bool dobackup = true;
 bool verbose;
@@ -39,49 +34,6 @@ bool verbose;
 
 std::string ERROR = "ERROR: ";
 std::string WARN = "WARNING: ";
-
-
-bool read_evoconfig()
-{
-	ifstream myfile (configfile.c_str());
-	if ( myfile.is_open() )
-	{
-		stringstream key,val;
-		bool isKey = true;
-		string line;
-		unsigned int i;
-		while ( getline(myfile,line) )
-		{
-			if ( (line[0] == '#') || (line[0] == ';') )
-				continue;
-			for (i = 0; i < line.length(); i++)
-			{
-				if ( (line[i] == ' ') || (line[i] == '\'') || (line[i] == '"') || (line[i] == 0x0d) )
-					continue;
-				if (line[i] == '=')
-				{
-					isKey = false;
-					continue;
-				}
-				if (isKey)
-					key << line[i];
-				else
-					val << line[i];
-			}
-			if ( ! isKey )
-			{
-				string skey = key.str();
-				evoconfig[skey] = val.str();
-				isKey = true;
-				key.str("");
-				val.str("");
-			}
-		}
-		myfile.close();
-		return true;
-	}
-	return false;
-}
 
 
 void exit_error(std::string message)
@@ -164,6 +116,12 @@ void parse_args(int argc, char** argv) {
 	}
 }
 
+void log(const std::string message)
+{
+	if (verbose)
+		cout << message << "\n";
+}
+
 
 int main(int argc, char** argv)
 {
@@ -176,13 +134,23 @@ int main(int argc, char** argv)
 	read_evoconfig();
 
 // connect to Evohome server
-	if (verbose)
-		cout << "connect to Evohome server\n";
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	log("connect to Evohome server");
+	EvohomeClient2 eclient = EvohomeClient2();
+	if (eclient.load_auth_from_file(AUTH_FILE_V2))
+		log("    reusing saved connection (UK/EMEA)");
+	else
+	{
+		if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+		{
+			log("    connected (UK/EMEA)");
+			eclient.save_auth_to_file(AUTH_FILE_V2);
+		}
+		else
+			log("    login failed (UK/EMEA)");
+	}
 
 // retrieve Evohome installation
-	if (verbose)
-		cout << "retrieve Evohome installation info\n";
+	log("retrieve Evohome installation info");
 	eclient.full_installation();
 
 	if (dobackup)	// backup

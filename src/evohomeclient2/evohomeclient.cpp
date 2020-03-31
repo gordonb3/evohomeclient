@@ -171,7 +171,6 @@ bool EvohomeClient2::obtain_access_token(const std::string &szCredentials)
 	std::string szResponse;
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
-std::cerr << szResponse << "\n";
 
 	Json::Value jLogin;
 	if (evohome::parse_json_string(szResponse, jLogin) < 0)
@@ -286,7 +285,12 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 	m_tTokenExpirationTime = static_cast<time_t>(atoi(jAuth["expiration_time"].asString().c_str()));
 
 	if (time(NULL) > m_tTokenExpirationTime)
-		return renew_login();
+	{
+		bool bRenew = renew_login();
+		if (bRenew)
+			save_auth_to_file(szFilename);
+		return bRenew;
+	}
 
 	std::string szAuthBearer = "Authorization: bearer ";
 	szAuthBearer.append(m_szAccessToken);

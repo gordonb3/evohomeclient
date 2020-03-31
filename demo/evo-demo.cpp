@@ -8,26 +8,14 @@
 #include <cstdlib>
 #include <string>
 #include <iostream>
-#include <map>
-#include <time.h>
-
-
-#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <map>
 #include <cstring>
+#include <map>
 #include <time.h>
+#include "demo-defaults.hpp"
 #include "evohomeclient/evohomeclient.h"
 #include "evohomeclient2/evohomeclient.h"
-
-#ifndef CONF_FILE
-#define CONF_FILE "evoconfig"
-#endif
-
-#ifndef SCHEDULE_CACHE
-#define SCHEDULE_CACHE "schedules.json"
-#endif
 
 
 #define SHOW_DECIMALS 1
@@ -41,7 +29,6 @@ int tzoffset=-1;
 std::string lastzone = "";
 
 std::string configfile;
-std::map<std::string, std::string> evoconfig;
 
 bool verbose;
 
@@ -49,49 +36,6 @@ std::string ERROR = "ERROR: ";
 std::string WARN = "WARNING: ";
 
 bool highdef = true;
-
-
-bool read_evoconfig()
-{
-	ifstream myfile (configfile.c_str());
-	if ( myfile.is_open() )
-	{
-		std::stringstream key,val;
-		bool isKey = true;
-		std::string line;
-		unsigned int i;
-		while ( getline(myfile,line) )
-		{
-			if ( (line[0] == '#') || (line[0] == ';') )
-				continue;
-			for (i = 0; i < line.length(); i++)
-			{
-				if ( (line[i] == ' ') || (line[i] == '\'') || (line[i] == '"') || (line[i] == 0x0d) )
-					continue;
-				if (line[i] == '=')
-				{
-					isKey = false;
-					continue;
-				}
-				if (isKey)
-					key << line[i];
-				else
-					val << line[i];
-			}
-			if ( ! isKey )
-			{
-				std::string skey = key.str();
-				evoconfig[skey] = val.str();
-				isKey = true;
-				key.str("");
-				val.str("");
-			}
-		}
-		myfile.close();
-		return true;
-	}
-	return false;
-}
 
 
 void exit_error(std::string message)
@@ -173,12 +117,15 @@ int main(int argc, char** argv)
 // connect to Evohome server
 	std::cout << "connect to Evohome server\n";
 	EvohomeClient2 eclient = EvohomeClient2();
-	if (eclient.load_auth_from_file("/tmp/evo2auth.json"))
+	if (eclient.load_auth_from_file(AUTH_FILE_V2))
 		std::cout << "    reusing saved connection (UK/EMEA)\n";
 	else
 	{
 		if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+		{
 			std::cout << "    connected (UK/EMEA)\n";
+			eclient.save_auth_to_file(AUTH_FILE_V2);
+		}
 		else
 		{
 			std::cout << "    login failed (UK/EMEA)\n";
@@ -187,12 +134,15 @@ int main(int argc, char** argv)
 	}
 
 	EvohomeClient v1client = EvohomeClient();
-	if (v1client.load_auth_from_file("/tmp/evo1auth.json"))
+	if (v1client.load_auth_from_file(AUTH_FILE_V1))
 		std::cout << "    reusing saved connection (US)\n";
 	else
 	{
 		if (v1client.login(evoconfig["usr"],evoconfig["pw"]))
+		{
 			std::cout << "    connected (US)\n";
+			v1client.save_auth_to_file(AUTH_FILE_V1);
+		}
 		else
 		{
 			std::cout << "    login failed (US)\n";
@@ -356,14 +306,10 @@ int main(int argc, char** argv)
 */
 
 
-	eclient.save_auth_to_file("/tmp/evo2auth.json");
 	eclient.cleanup();
 
 	if (highdef)
-	{
-		v1client.save_auth_to_file("/tmp/evo1auth.json");
 		v1client.cleanup();
-	}
 
 	return 0;
 }

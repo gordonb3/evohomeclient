@@ -14,6 +14,7 @@
 #include <cstring>
 #include <time.h>
 #include <stdlib.h>
+#include "demo-defaults.hpp"
 #include "evohomeclient2/evohomeclient.h"
 
 
@@ -21,30 +22,12 @@
 #define MYNAME "evo-cmd"
 #endif
 
-#ifndef MYPATH
-#define MYPATH "/"
-#endif
-
-#ifndef CONF_FILE
-#define CONF_FILE "evoconfig"
-#endif
-
-
-#ifdef _WIN32
-#define localtime_r(timep, result) localtime_s(result, timep)
-#define gmtime_r(timep, result) gmtime_s(result, timep)
-#endif
-
-#ifndef _WIN32
-#define sprintf_s(buffer, buffer_size, stringbuffer, ...) (sprintf(buffer, stringbuffer, __VA_ARGS__))
-#endif
 
 using namespace std;
 
 time_t now;
 bool dobackup, verbose, dolog;
 std::string command, backupfile, configfile, szERROR, szWARN, logfile, szLOG;
-std::map<std::string,std::string> evoconfig;
 map<int,std::string> parameters;
 ofstream flog;
 
@@ -121,61 +104,6 @@ void print_err(std::string message)
 }
 
 
-bool read_evoconfig(std::string configfile)
-{
-	ifstream myfile (configfile.c_str());
-	if ( myfile.is_open() )
-	{
-		stringstream key,val;
-		bool isKey = true;
-		bool quoted = false;
-		string line;
-		unsigned int i;
-		while ( getline(myfile,line) )
-		{
-			if ( (line[0] == '#') || (line[0] == ';') )
-				continue;
-			for (i = 0; i < line.length(); i++)
-			{
-				if ( (line[i] == '\'') || (line[i] == '"') )
-				{
-					quoted = ( ! quoted );
-					continue;
-				}
-				if (line[i] == 0x0d)
-					continue;
-				if ( (line[i] == ' ') && ( ! quoted ) )
-					continue;
-				if (line[i] == '=')
-				{
-					isKey = false;
-					continue;
-				}
-				if (isKey)
-					key << line[i];
-				else
-				{
-					if ( (line[i] == ' ') && (key.str() == "srt") )
-						print_err("WARNING: space detected in 'srt' setting. Controlling Evohome from Domoticz will likely not function");
-					val << line[i];
-				}
-			}
-			if ( ! isKey )
-			{
-				string skey = key.str();
-				evoconfig[skey] = val.str();
-				isKey = true;
-				key.str("");
-				val.str("");
-			}
-		}
-		myfile.close();
-		return true;
-	}
-	return false;
-}
-
-
 void startlog(std::string fname)
 {
 	logfile = fname;
@@ -222,6 +150,23 @@ void exit_error(std::string message)
 	print_err(message);
 	stoplog();
 	exit(1);
+}
+
+
+void authorize_to_server(EvohomeClient2 &eclient)
+{
+	if (eclient.load_auth_from_file(AUTH_FILE_V2))
+		log("    reusing saved connection (UK/EMEA)");
+	else
+	{
+		if (eclient.login(evoconfig["usr"],evoconfig["pw"]))
+		{
+			log("    connected (UK/EMEA)");
+			eclient.save_auth_to_file(AUTH_FILE_V2);
+		}
+		else
+			log("    login failed (UK/EMEA)");
+	}
 }
 
 
@@ -370,7 +315,8 @@ void cmd_backup_and_restore_schedules()
 {
 	// connect to Evohome server
 	log("connect to Evohome server");
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2();
+	authorize_to_server(eclient);
 
 	// retrieve Evohome installation
 	log("retrieve Evohome installation info");
@@ -429,7 +375,8 @@ std::string format_time(std::string utc_time)
 void cancel_temperature_override()
 {
 	log("connect to Evohome server");
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2();
+	authorize_to_server(eclient);
 
 	if ( ! eclient.cancel_temperature_override(parameters[1]) )
 		exit_error(szERROR+"failed to cancel override for zone "+parameters[1]);
@@ -455,9 +402,11 @@ void cmd_set_temperature()
 
 
 	log("connect to Evohome server");
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2();
+	authorize_to_server(eclient);
 
 	log("set target temperature");
+
 	eclient.set_temperature(parameters[1], parameters[3], s_until);
 
 	eclient.cleanup();
@@ -475,7 +424,9 @@ void cmd_set_system_mode()
 	if (parameters.size() == 2)
 		until = format_time(parameters[2]);
 	log("connect to Evohome server");
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2();
+	authorize_to_server(eclient);
+
 	if ( evoconfig.find("systemId") != evoconfig.end() ) {
 		log(szLOG+"using systemId from "+configfile);
 		szSystemId = evoconfig["systemId"];
@@ -514,7 +465,9 @@ void cmd_set_dhw_state()
 		s_until = format_time(parameters[3]);
 
 	log("connect to Evohome server");
-	EvohomeClient2 eclient = EvohomeClient2(evoconfig["usr"],evoconfig["pw"]);
+	EvohomeClient2 eclient = EvohomeClient2();
+	authorize_to_server(eclient);
+
 	log("set domestic hot water state");
 	eclient.set_dhw_mode(parameters[1], parameters[2], s_until);
 	eclient.cleanup();
