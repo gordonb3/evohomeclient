@@ -111,8 +111,8 @@ private:
 	void get_zones(const int location, const int gateway, const int temperatureControlSystem);
 	void get_dhw(const int location, const int gateway, const int temperatureControlSystem);
 
-	bool get_zone_schedule_ex(const std::string szZoneId, const std::string szZoneType);
-	bool set_zone_schedule_ex(const std::string szZoneId, const std::string zoneType, Json::Value *jSchedule);
+	bool get_zone_schedule_ex(const std::string szZoneId, const int zoneType);
+	bool set_zone_schedule_ex(const std::string szZoneId, const int zoneType, Json::Value *jSchedule);
 
 };
 
