@@ -63,7 +63,7 @@ void EvohomeClient::init()
  */
 void EvohomeClient::cleanup()
 {
-	std::cout << "cleanup (v1) not implemented yet\n";
+	EvoHTTPBridge::CloseConnection();
 }
 
 

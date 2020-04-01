@@ -32,7 +32,7 @@ namespace method {
 
 
 
-class HTTPClient_Base
+class HTTPClient
 {
 protected:
 	/************************************************************************

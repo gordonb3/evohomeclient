@@ -8,9 +8,10 @@
  */
 
 #include "HTTPClient.hpp"
+#include <vector>
 
 
-class EvoHTTPBridge : public HTTPClient_Base
+class EvoHTTPBridge : public HTTPClient
 {
 public:
 	static bool SafeGET(const std::string &szUrl, const std::vector<std::string> &ExtraHeaders, std::string &szResponse, const long iTimeOut = -1);
@@ -20,6 +21,8 @@ public:
 
 	static std::string URLEncode(std::string szDecodedString);
 	static bool ProcessResponse(std::string &szResponse, const std::vector<std::string> &vHeaderData, const bool bhttpOK);
+
+	static void CloseConnection();
 };
 
 

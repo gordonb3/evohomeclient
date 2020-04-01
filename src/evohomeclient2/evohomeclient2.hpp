@@ -68,15 +68,15 @@ public:
 	std::string get_next_utcswitchpoint(Json::Value &jSchedule);
 	std::string get_next_utcswitchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday = -1);
 
-	bool set_system_mode(const std::string systemId, const int mode, const std::string date_until = "");
-	bool set_system_mode(const std::string systemId, const std::string mode, const std::string date_until = "");
+	bool set_system_mode(const std::string szSystemId, const int mode, const std::string szDateUntil = "");
+	bool set_system_mode(const std::string szSystemId, const std::string szMode, const std::string szDateUntil = "");
 
-	bool set_temperature(std::string szZoneId, std::string temperature, std::string time_until);
+	bool set_temperature(std::string szZoneId, std::string temperature, std::string szTimeUntil);
 	bool set_temperature(std::string szZoneId, std::string temperature);
 	bool cancel_temperature_override(std::string szZoneId);
 
-	bool set_dhw_mode(std::string dhwId, std::string mode, std::string time_until);
-	bool set_dhw_mode(std::string dhwId, std::string mode);
+	bool set_dhw_mode(std::string szDHWId, std::string szMode, std::string szTimeUntil);
+	bool set_dhw_mode(std::string szDHWId, std::string szMode);
 
 	std::string request_next_switchpoint(std::string szZoneId);
 

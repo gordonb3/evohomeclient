@@ -230,3 +230,8 @@ bool EvoHTTPBridge::ProcessResponse(std::string &szResponse, const std::vector<s
 	return false;
 }
 
+void EvoHTTPBridge::CloseConnection()
+{
+	EvoHTTPBridge::Cleanup();
+}
+

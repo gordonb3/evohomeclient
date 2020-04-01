@@ -19,13 +19,13 @@
  *									*
  ************************************************************************/
 
-bool		HTTPClient_Base::m_bCurlGlobalInitialized = false;
-bool		HTTPClient_Base::m_bVerifyHost = false;
-bool		HTTPClient_Base::m_bVerifyPeer = false;
-long		HTTPClient_Base::m_iConnectionTimeout = 10;
-long		HTTPClient_Base::m_iTimeout = 90;
-std::string	HTTPClient_Base::m_sUserAgent = "curle/1.0";
-std::string	HTTPClient_Base::m_sCookieFile = "cookie.txt";
+bool		HTTPClient::m_bCurlGlobalInitialized = false;
+bool		HTTPClient::m_bVerifyHost = false;
+bool		HTTPClient::m_bVerifyPeer = false;
+long		HTTPClient::m_iConnectionTimeout = 10;
+long		HTTPClient::m_iTimeout = 90;
+std::string	HTTPClient::m_sUserAgent = "curle/1.0";
+std::string	HTTPClient::m_sCookieFile = "cookie.txt";
 
 
 /************************************************************************
@@ -34,29 +34,29 @@ std::string	HTTPClient_Base::m_sCookieFile = "cookie.txt";
  *									*
  ************************************************************************/
 
-void HTTPClient_Base::SetConnectionTimeout(const long timeout)
+void HTTPClient::SetConnectionTimeout(const long timeout)
 {
 	m_iConnectionTimeout = timeout;
 }
 
-void HTTPClient_Base::SetTimeout(const long timeout)
+void HTTPClient::SetTimeout(const long timeout)
 {
 	m_iTimeout = timeout;
 }
 
-void HTTPClient_Base::SetSecurityOptions(const bool verifypeer, const bool verifyhost)
+void HTTPClient::SetSecurityOptions(const bool verifypeer, const bool verifyhost)
 {
 	m_bVerifyPeer = verifypeer;
 	m_bVerifyHost = verifyhost;
 }
 
-void HTTPClient_Base::SetUserAgent(const std::string &useragent)
+void HTTPClient::SetUserAgent(const std::string &useragent)
 {
 	m_sUserAgent = useragent;
 }
 
 
-void HTTPClient_Base::SetCookieFile(const std::string &cookiefile)
+void HTTPClient::SetCookieFile(const std::string &cookiefile)
 {
 	m_sCookieFile = cookiefile;
 }
@@ -98,7 +98,7 @@ size_t write_curl_data(void *contents, size_t size, size_t nmemb, void *userp)
  *									*
  ************************************************************************/
 
-bool HTTPClient_Base::CheckIfGlobalInitDone()
+bool HTTPClient::CheckIfGlobalInitDone()
 {
 	if (!m_bCurlGlobalInitialized)
 	{
@@ -110,15 +110,16 @@ bool HTTPClient_Base::CheckIfGlobalInitDone()
 	return true;
 }
 
-void HTTPClient_Base::Cleanup()
+void HTTPClient::Cleanup()
 {
 	if (m_bCurlGlobalInitialized)
 	{
 		curl_global_cleanup();
+		m_bCurlGlobalInitialized = false;
 	}
 }
 
-void HTTPClient_Base::SetGlobalOptions(void *curlobj)
+void HTTPClient::SetGlobalOptions(void *curlobj)
 {
 	CURL *curl=(CURL *)curlobj;
 	curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC | CURLAUTH_DIGEST);
@@ -145,7 +146,7 @@ void HTTPClient_Base::SetGlobalOptions(void *curlobj)
  *									*
  ************************************************************************/
 
-bool HTTPClient_Base::ExecuteBinary(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::vector<unsigned char> &vResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut)
+bool HTTPClient::ExecuteBinary(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::vector<unsigned char> &vResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut)
 {
 	try
 	{
@@ -226,7 +227,7 @@ bool HTTPClient_Base::ExecuteBinary(const connection::HTTP::method::value eMetho
 	}
 }
 
-bool HTTPClient_Base::Execute(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::string &szResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut, const bool bIgnoreNoDataReturned)
+bool HTTPClient::Execute(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::string &szResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut, const bool bIgnoreNoDataReturned)
 {
 
 	szResponse = "";
