@@ -15,7 +15,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include "demo-defaults.hpp"
-#include "evohomeclient2/evohomeclient.h"
+#include "evohomeclient2/evohomeclient2.hpp"
 
 
 #ifndef MYNAME

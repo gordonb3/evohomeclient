@@ -14,7 +14,7 @@
 #include <cstring>
 #include <cstdlib>
 #include "demo-defaults.hpp"
-#include "evohomeclient2/evohomeclient.h"
+#include "evohomeclient2/evohomeclient2.hpp"
 
 
 

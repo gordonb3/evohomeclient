@@ -15,7 +15,7 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#include "evohomeclient.h"
+#include "evohomeclient2.hpp"
 #include "jsoncpp/json.h"
 #include "connection/EvoHTTPBridge.hpp"
 #include "evohome/jsoncppbridge.hpp"
@@ -48,6 +48,7 @@ namespace evohome {
     namespace zone {
       static const std::string modes[7] = {"FollowSchedule", "PermanentOverride", "TemporaryOverride", "OpenWindow", "LocalOverride", "RemoteOverride", "Unknown"};
       static const std::string types[2] = {"temperatureZone", "domesticHotWater"};
+      static const std::string states[2] = {"Off", "On"};
     }; // namespace zone
 
     namespace uri {

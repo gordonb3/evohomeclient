@@ -15,7 +15,7 @@
 #include <cstdlib>
 #include <time.h>
 #include "demo-defaults.hpp"
-#include "evohomeclient2/evohomeclient.h"
+#include "evohomeclient2/evohomeclient2.hpp"
 
 using namespace std;
 

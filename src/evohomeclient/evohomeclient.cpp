@@ -14,9 +14,9 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include "evohomeclient.h"
 #include <stdexcept>
 
+#include "evohomeclient.hpp"
 #include "connection/EvoHTTPBridge.hpp"
 #include "evohome/jsoncppbridge.hpp"
 

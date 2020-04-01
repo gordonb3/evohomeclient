@@ -14,8 +14,8 @@
 #include <map>
 #include <time.h>
 #include "demo-defaults.hpp"
-#include "evohomeclient/evohomeclient.h"
-#include "evohomeclient2/evohomeclient.h"
+#include "evohomeclient/evohomeclient.hpp"
+#include "evohomeclient2/evohomeclient2.hpp"
 
 
 #define SHOW_DECIMALS 1
