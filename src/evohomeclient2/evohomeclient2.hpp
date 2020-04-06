@@ -20,7 +20,6 @@ class EvohomeClient2
 {
 public:
 	EvohomeClient2();
-	EvohomeClient2(const std::string &szUser, const std::string &szPassword);
 	~EvohomeClient2();
 
 	void cleanup();
@@ -29,12 +28,11 @@ public:
 	bool renew_login();
 	bool save_auth_to_file(const std::string &szFilename);
 	bool load_auth_from_file(const std::string &szFilename);
-	bool user_account();
 
 	bool full_installation();
-	bool get_status(int location);
 
-	bool get_status_by_ID(std::string locationId);
+	bool get_status(int location);
+	bool get_status(std::string locationId);
 
 	evohome::device::location *get_location_by_ID(std::string locationId);
 	evohome::device::gateway *get_gateway_by_ID(std::string gatewayId);
@@ -99,12 +97,14 @@ private:
 	time_t m_tTokenExpirationTime;
 	std::vector<std::string> m_vEvoHeader;
 	int m_tzoffset;
-	int lastDST;
+	int m_lastDST;
 
 	std::string m_szLastError;
 
+
 	void init();
 	bool obtain_access_token(const std::string &szCredentials);
+	bool user_account();
 
 	void get_gateways(const int location);
 	void get_temperatureControlSystems(const int location, const int gateway);

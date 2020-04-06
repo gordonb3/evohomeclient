@@ -116,15 +116,10 @@ EvohomeClient2::EvohomeClient2()
 {
 	init();
 }
-EvohomeClient2::EvohomeClient2(const std::string &szUser, const std::string &szPassword)
-{
-	init();
-	login(szUser, szPassword);
-}
-
 
 EvohomeClient2::~EvohomeClient2()
 {
+	cleanup();
 }
 
 /************************************************************************
@@ -139,7 +134,7 @@ EvohomeClient2::~EvohomeClient2()
 void EvohomeClient2::init()
 {
 	m_tzoffset = -1;
-	lastDST = -1;
+	m_lastDST = -1;
 }
 
 
@@ -548,7 +543,7 @@ bool EvohomeClient2::get_status(int location)
 }
 
 
-bool EvohomeClient2::get_status_by_ID(std::string szLocationId)
+bool EvohomeClient2::get_status(std::string szLocationId)
 {
 	if (m_vLocations.size() == 0)
 		return false;
@@ -1296,12 +1291,12 @@ std::string EvohomeClient2::local_to_utc(std::string local_time)
 	ltime.tm_min = atoi(local_time.substr(14, 2).c_str());
 	ltime.tm_sec = atoi(local_time.substr(17, 2).c_str()) + m_tzoffset;
 	mktime(&ltime);
-	if (lastDST == -1)
-		lastDST = ltime.tm_isdst;
-	else if ((lastDST != ltime.tm_isdst) && (lastDST != -1)) // DST changed - must recalculate timezone offset
+	if (m_lastDST == -1)
+		m_lastDST = ltime.tm_isdst;
+	else if ((m_lastDST != ltime.tm_isdst) && (m_lastDST != -1)) // DST changed - must recalculate timezone offset
 	{
-		ltime.tm_hour -= (ltime.tm_isdst - lastDST);
-		lastDST = ltime.tm_isdst;
+		ltime.tm_hour -= (ltime.tm_isdst - m_lastDST);
+		m_lastDST = ltime.tm_isdst;
 		m_tzoffset = -1;
 	}
 	char cUntil[22];
@@ -1335,12 +1330,12 @@ std::string EvohomeClient2::utc_to_local(std::string utc_time)
 	ltime.tm_min = atoi(utc_time.substr(14, 2).c_str());
 	ltime.tm_sec = atoi(utc_time.substr(17, 2).c_str()) - m_tzoffset;
 	mktime(&ltime);
-	if (lastDST == -1)
-		lastDST = ltime.tm_isdst;
-	else if ((lastDST != ltime.tm_isdst) && (lastDST != -1)) // DST changed - must recalculate timezone offset
+	if (m_lastDST == -1)
+		m_lastDST = ltime.tm_isdst;
+	else if ((m_lastDST != ltime.tm_isdst) && (m_lastDST != -1)) // DST changed - must recalculate timezone offset
 	{
-		ltime.tm_hour += (ltime.tm_isdst - lastDST);
-		lastDST = ltime.tm_isdst;
+		ltime.tm_hour += (ltime.tm_isdst - m_lastDST);
+		m_lastDST = ltime.tm_isdst;
 		m_tzoffset = -1;
 	}
 	char cUntil[40];
