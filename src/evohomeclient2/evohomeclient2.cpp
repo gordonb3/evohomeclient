@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Gordon Bos <gordon@bosvangennip.nl> All rights reserved.
+ * Copyright (c) 2016-2020 Gordon Bos <gordon@bosvangennip.nl> All rights reserved.
  *
  * Json client for UK/EMEA Evohome API
  *
@@ -122,12 +122,6 @@ EvohomeClient2::~EvohomeClient2()
 	cleanup();
 }
 
-/************************************************************************
- *									*
- *	Webclient helpers						*
- *									*
- ************************************************************************/
-
 /*
  * Initialize
  */
@@ -154,6 +148,11 @@ std::string EvohomeClient2::get_last_error()
 }
 
 
+std::string EvohomeClient2::get_last_response()
+{
+	return m_szResponse;
+}
+
 /************************************************************************
  *									*
  *	Evohome authentication						*
@@ -171,12 +170,11 @@ bool EvohomeClient2::obtain_access_token(const std::string &szCredentials)
 	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive&");
 	szPostdata.append(szCredentials);
 
-	std::string szResponse;
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
-	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, szResponse, -1);
+	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, m_szResponse, -1);
 
 	Json::Value jLogin;
-	if (evohome::parse_json_string(szResponse, jLogin) < 0)
+	if (evohome::parse_json_string(m_szResponse, jLogin) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -205,7 +203,7 @@ bool EvohomeClient2::obtain_access_token(const std::string &szCredentials)
 	m_vEvoHeader.push_back(evohome::API::header::accept);
 	m_vEvoHeader.push_back(evohome::API::header::jsondata);
 
-	return user_account();
+	return get_user_id();
 }
 
 /*
@@ -303,21 +301,20 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 	m_vEvoHeader.push_back(evohome::API::header::accept);
 	m_vEvoHeader.push_back(evohome::API::header::jsondata);
 
-	return user_account();
+	return get_user_id();
 }
 
 
 /*
  * Retrieve evohome user info
  */
-bool EvohomeClient2::user_account()
+bool EvohomeClient2::get_user_id()
 {
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::userAccount);
-	std::string szResponse;
-	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 	Json::Value jUserAccount;
-	if (evohome::parse_json_string(szResponse, jUserAccount) < 0)
+	if (evohome::parse_json_string(m_szResponse, jUserAccount) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -431,15 +428,14 @@ bool EvohomeClient2::full_installation()
 	std::vector<evohome::device::location>().swap(m_vLocations);
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::installationInfo, m_szUserId);
-	std::string szResponse;
-	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 	// evohome API returns an unnamed json array which is not accepted by our parser
-	szResponse.insert(0, "{\"locations\": ");
-	szResponse.append("}");
+	m_szResponse.insert(0, "{\"locations\": ");
+	m_szResponse.append("}");
 
 	m_jFullInstallation.clear();
-	if (evohome::parse_json_string(szResponse, m_jFullInstallation) < 0)
+	if (evohome::parse_json_string(m_szResponse, m_jFullInstallation) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -477,11 +473,10 @@ bool EvohomeClient2::get_status(int location)
 	bool valid_json = true;
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::status, m_vLocations[location].szLocationId);
-	std::string szResponse;
-	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 	m_jFullStatus.clear();
-	if (evohome::parse_json_string(szResponse, m_jFullStatus) < 0)
+	if (evohome::parse_json_string(m_szResponse, m_jFullStatus) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -688,11 +683,10 @@ evohome::device::temperatureControlSystem *EvohomeClient2::get_zone_temperatureC
 std::string EvohomeClient2::request_next_switchpoint(std::string szZoneId)
 {
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneUpcoming, szZoneId, 0);
-	std::string szResponse;
-	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 	Json::Value jSwitchPoint;
-	if (evohome::parse_json_string(szResponse, jSwitchPoint) < 0)
+	if (evohome::parse_json_string(m_szResponse, jSwitchPoint) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return "";
@@ -719,16 +713,15 @@ bool EvohomeClient2::get_zone_schedule_ex(const std::string szZoneId, const int 
 {
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szZoneId, zoneType);
-	std::string szResponse;
-	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
-	if (!szResponse.find("\"id\""))
+	if (!m_szResponse.find("\"id\""))
 		return false;
 	evohome::device::zone *zone = get_zone_by_ID(szZoneId);
 	if (zone == NULL)
 		return false;
 
-	if (evohome::parse_json_string(szResponse, zone->schedule) < 0)
+	if (evohome::parse_json_string(m_szResponse, zone->schedule) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -985,14 +978,13 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							continue;
 
 						std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szZoneId, 0);
-						std::string szResponse;
-						EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+											EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
-						if (!szResponse.find("\"id\""))
+						if (!m_szResponse.find("\"id\""))
 							continue;
 
 						Json::Value jDailySchedule;
-						if (evohome::parse_json_string(szResponse, jDailySchedule) < 0)
+						if (evohome::parse_json_string(m_szResponse, jDailySchedule) < 0)
 						{
 							m_szLastError = "Failed to parse server response as JSON";
 							continue;
@@ -1015,14 +1007,13 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							continue;
 
 						std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szHotWaterId, 1);
-						std::string szResponse;
-						EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, szResponse, -1);
+											EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
-						if ( ! szResponse.find("\"id\""))
+						if ( ! m_szResponse.find("\"id\""))
 							return false;
 
 						Json::Value jDailySchedule;
-						if (evohome::parse_json_string(szResponse, jDailySchedule) < 0)
+						if (evohome::parse_json_string(m_szResponse, jDailySchedule) < 0)
 						{
 							m_szLastError = "Failed to parse server response as JSON";
 							continue;
@@ -1054,7 +1045,7 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 /*
  * Load all schedules from a schedule backup file
  */
-bool EvohomeClient2::read_schedules_from_file(const std::string &szFilename)
+bool EvohomeClient2::load_schedules_from_file(const std::string &szFilename)
 {
 	std::string szFileContent;
 	std::ifstream myfile (szFilename.c_str());
@@ -1157,10 +1148,9 @@ bool EvohomeClient2::set_zone_schedule_ex(const std::string szZoneId, int zoneTy
 	}
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szZoneId, zoneType);
-	std::string szResponse;
-	EvoHTTPBridge::SafePUT(szUrl, szPutdata, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafePUT(szUrl, szPutdata, m_vEvoHeader, m_szResponse, -1);
 
-	if (szResponse.find("\"id\""))
+	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
 }
@@ -1171,7 +1161,7 @@ bool EvohomeClient2::set_zone_schedule_ex(const std::string szZoneId, int zoneTy
  */
 bool EvohomeClient2::schedules_restore(const std::string &szFilename)
 {
-	if ( ! read_schedules_from_file(szFilename) )
+	if ( ! load_schedules_from_file(szFilename) )
 		return false;
 
 	std::cout << "Restoring schedules from file " << szFilename << "\n";
@@ -1390,10 +1380,9 @@ bool EvohomeClient2::set_system_mode(const std::string szSystemId, const int mod
 		szPutData.append("false}");
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::systemMode, szSystemId);
-	std::string szResponse;
-	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, m_szResponse, -1);
 
-	if (szResponse.find("\"id\""))
+	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
 }
@@ -1403,7 +1392,7 @@ bool EvohomeClient2::set_system_mode(const std::string szSystemId, const int mod
 /*
  * Override a zone's target temperature
  */
-bool EvohomeClient2::set_temperature(std::string szZoneId, std::string temperature, std::string szTimeUntil)
+bool EvohomeClient2::set_temperature(const std::string szZoneId, const std::string temperature, const std::string szTimeUntil)
 {
 	std::string szPutData = "{\"HeatSetpointValue\":";
 	szPutData.append(temperature);
@@ -1427,39 +1416,37 @@ bool EvohomeClient2::set_temperature(std::string szZoneId, std::string temperatu
 	}
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSetpoint, szZoneId);
-	std::string szResponse;
-	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, m_szResponse, -1);
 
-	if (szResponse.find("\"id\""))
+	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
-}
-bool EvohomeClient2::set_temperature(std::string szZoneId, std::string temperature)
-{
-	return set_temperature(szZoneId, temperature, "");
 }
 
 
 /*
  * Cancel a zone's target temperature override
  */
-bool EvohomeClient2::cancel_temperature_override(std::string szZoneId)
+bool EvohomeClient2::cancel_temperature_override(const std::string szZoneId)
 {
 	std::string szPutData = "{\"HeatSetpointValue\":0.0,\"SetpointMode\":\"FollowSchedule\",\"TimeUntil\":null}";
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSetpoint, szZoneId);
-	std::string szResponse;
-	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, m_szResponse, -1);
 
-	if (szResponse.find("\"id\""))
+	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
 }
 
 
-bool EvohomeClient2::has_dhw(int location, int gateway, int temperatureControlSystem)
+bool EvohomeClient2::has_dhw(const int locationId, const int gatewayId, const int systemId)
 {
-	return has_dhw(&m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem]);
+	return has_dhw(&m_vLocations[locationId].gateways[gatewayId].temperatureControlSystems[systemId]);
+}
+bool EvohomeClient2::has_dhw(const std::string szSystemId)
+{
+	return has_dhw(get_temperatureControlSystem_by_ID(szSystemId));
 }
 bool EvohomeClient2::has_dhw(evohome::device::temperatureControlSystem *tcs)
 {
@@ -1480,7 +1467,7 @@ bool EvohomeClient2::is_single_heating_system()
 /*
  * Set mode for Hot Water device
  */
-bool EvohomeClient2::set_dhw_mode(std::string szDHWId, std::string szMode, std::string szTimeUntil)
+bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string szMode,const  std::string szTimeUntil)
 {
 	std::string szPutData = "{\"State\":\"";
 	if (szMode == "on")
@@ -1509,15 +1496,10 @@ bool EvohomeClient2::set_dhw_mode(std::string szDHWId, std::string szMode, std::
 	}
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::dhwState, szDHWId);
-	std::string szResponse;
-	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, szResponse, -1);
+	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, m_szResponse, -1);
 
-	if (szResponse.find("\"id\""))
+	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
-}
-bool EvohomeClient2::set_dhw_mode(std::string szDHWId, std::string szMode)
-{
-	return set_dhw_mode(szDHWId, szMode, "");
 }
 

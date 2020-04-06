@@ -201,12 +201,12 @@ int main(int argc, char** argv)
 
 // retrieving schedules and/or switchpoints can be slow because we can only fetch them for a single zone at a time.
 // luckily schedules do not change very often, so we can use a local cache
-	if ( ! eclient->read_schedules_from_file(SCHEDULE_CACHE) )
+	if ( ! eclient->load_schedules_from_file(SCHEDULE_CACHE) )
 	{
 		std::cout << "create local copy of schedules" << "\n";
 		if ( ! eclient->schedules_backup(SCHEDULE_CACHE) )
 			exit_error(ERROR+"failed to open schedule cache file '"+SCHEDULE_CACHE+"'");
-		eclient->read_schedules_from_file(SCHEDULE_CACHE);
+		eclient->load_schedules_from_file(SCHEDULE_CACHE);
 	}
 
 
