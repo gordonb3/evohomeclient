@@ -32,6 +32,7 @@ int tzoffset=-1;
 std::string zoneid = "";
 std::string setpointmode = ""; // 0 = cancel override, 1 = override
 std::string setpoint = "";
+std::string utc_time = "";
 
 
 
@@ -93,6 +94,8 @@ void parse_args(int argc, char** argv) {
 			setpointmode = argv[i];
 		} else if (setpoint == "") {
 			setpoint = argv[i];
+		} else if (utc_time == "") {
+			utc_time = argv[i];
 
 		} else {
 			usage("badparm");
@@ -106,79 +109,6 @@ void parse_args(int argc, char** argv) {
 		exit(1);
 	}
 
-}
-
-
-std::string int_to_string(int myint)
-{
-	stringstream ss;
-	ss << myint;
-	return ss.str();
-}
-
-
-std::string utc_to_local(std::string utc_time)
-{
-	if (tzoffset == -1)
-	{
-		// calculate timezone offset once
-		struct tm utime;
-		gmtime_r(&now, &utime);
-		tzoffset = difftime(mktime(&utime), now);
-	}
-	struct tm ltime;
-	ltime.tm_isdst = -1;
-	ltime.tm_year = atoi(utc_time.substr(0, 4).c_str()) - 1900;
-	ltime.tm_mon = atoi(utc_time.substr(5, 2).c_str()) - 1;
-	ltime.tm_mday = atoi(utc_time.substr(8, 2).c_str());
-	ltime.tm_hour = atoi(utc_time.substr(11, 2).c_str());
-	ltime.tm_min = atoi(utc_time.substr(14, 2).c_str());
-	ltime.tm_sec = atoi(utc_time.substr(17, 2).c_str()) - tzoffset;
-	time_t ntime = mktime(&ltime);
-	ntime--; // prevent compiler warning
-	char until[40];
-	sprintf(until,"%04d-%02d-%02dT%02d:%02d:%02dZ",ltime.tm_year+1900,ltime.tm_mon+1,ltime.tm_mday,ltime.tm_hour,ltime.tm_min,ltime.tm_sec);
-	return string(until);
-}
-
-
-map<std::string, std::string> evo_get_zone_data(evohome::device::temperatureControlSystem* tcs, int zoneindex)
-{
-	map<std::string, std::string> ret;
-
-	ret["until"] = "";
-
-	ret["zoneId"] = (*tcs->zones[zoneindex].jStatus)["zoneId"].asString();
-	ret["temperature"] = (*tcs->zones[zoneindex].jStatus)["temperatureStatus"]["temperature"].asString();
-	ret["targetTemperature"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["targetTemperature"].asString();
-	ret["setpointMode"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["setpointMode"].asString();
-	if (ret["setpointMode"] == "TemporaryOverride")
-		ret["until"] = (*tcs->zones[zoneindex].jStatus)["heatSetpointStatus"]["until"].asString();
-	return ret;
-}
-
-std::string local_to_utc(std::string utc_time)
-{
-	if (tzoffset == -1)
-	{
-		// calculate timezone offset once
-		struct tm utime;
-		gmtime_r(&now, &utime);
-		tzoffset = difftime(mktime(&utime), now);
-	}
-	struct tm ltime;
-	ltime.tm_isdst = -1;
-	ltime.tm_year = atoi(utc_time.substr(0, 4).c_str()) - 1900;
-	ltime.tm_mon = atoi(utc_time.substr(5, 2).c_str()) - 1;
-	ltime.tm_mday = atoi(utc_time.substr(8, 2).c_str());
-	ltime.tm_hour = atoi(utc_time.substr(11, 2).c_str());
-	ltime.tm_min = atoi(utc_time.substr(14, 2).c_str());
-	ltime.tm_sec = atoi(utc_time.substr(17, 2).c_str()) + tzoffset;
-	time_t ntime = mktime(&ltime);
-	ntime--; // prevent compiler warning
-	char until[40];
-	sprintf(until,"%04d-%02d-%02dT%02d:%02d:%02dZ",ltime.tm_year+1900,ltime.tm_mon+1,ltime.tm_mday,ltime.tm_hour,ltime.tm_min,ltime.tm_sec);
-	return string(until);
 }
 
 
@@ -197,6 +127,8 @@ int main(int argc, char** argv)
 	// set defaults
 	evoconfig["hwname"] = "evohome";
 	configfile = CONF_FILE;
+
+	parse_args(argc, argv);
 
 	if ( ! read_evoconfig() )
 		exit_error(ERROR+"can't read config file");
@@ -220,20 +152,19 @@ int main(int argc, char** argv)
 		}
 	}
 
-	if (strcmp(argv[2],"0") == 0 ) {
+	if (setpointmode == "0") {
 		// cancel override
-		if ( ! eclient.cancel_temperature_override(string(argv[1])) )
-			exit_error(ERROR+"failed to cancel override for zone "+argv[1]);
+		if ( ! eclient.cancel_temperature_override(zoneid) )
+			exit_error(ERROR+"failed to cancel override for zone "+zoneid);
 
 		eclient.cleanup();
 		return 0;
 	}
 
 	std::string s_until = "";
-	if (argc == 5)
+	if (!utc_time.empty())
 	{
 		// until set
-		std::string utc_time = string(argv[4]);
 		if (utc_time.length() < 19)
 			exit_error(ERROR+"bad timestamp value on command line");
 		struct tm ltime;
@@ -252,7 +183,8 @@ int main(int argc, char** argv)
 		s_until = string(c_until);
 	}
 
-	eclient.set_temperature(string(argv[1]), string(argv[3]), s_until);
+	if ( ! eclient.set_temperature(zoneid, setpoint, s_until) )
+		exit_error(ERROR+"failed to set override for zone "+zoneid);
 
 	eclient.cleanup();
 	return 0;

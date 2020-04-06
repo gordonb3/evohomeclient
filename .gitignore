@@ -6,8 +6,8 @@ evoconfig
 *.sample
 *.sh
 cookie.txt
-CMakeCache.txt
-cmake_install.cmake
-CMakeFiles
-Makefile
+demo/CMakeCache.txt
+demo/cmake_install.cmake
+demo/CMakeFiles
+demo/Makefile
 schedules.*

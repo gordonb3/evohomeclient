@@ -22,6 +22,7 @@ using namespace std;
 
 
 std::string mode = "";
+std::string argUntil = "";
 std::string configfile;
 
 bool verbose;
@@ -90,6 +91,8 @@ void parse_args(int argc, char** argv) {
 			configfile = word.substr(7);
 		} else if (mode == "") {
 			mode = argv[i];
+		} else if (argUntil == "") {
+			argUntil = argv[i];
 		} else {
 			usage("badparm");
 		}
@@ -155,6 +158,31 @@ int main(int argc, char** argv)
 {
 	configfile = CONF_FILE;
 	parse_args(argc, argv);
+
+	std::string s_until = "";
+	if (!argUntil.empty())
+	{
+		// until set
+		if (argUntil.length() < 10)
+			exit_error(ERROR+"bad timestamp value on command line");
+		struct tm ltime;
+		ltime.tm_isdst = -1;
+		ltime.tm_year = atoi(argUntil.substr(0, 4).c_str()) - 1900;
+		ltime.tm_mon = atoi(argUntil.substr(5, 2).c_str()) - 1;
+		ltime.tm_mday = atoi(argUntil.substr(8, 2).c_str());
+		ltime.tm_hour = 0;
+		ltime.tm_min = 0;
+		ltime.tm_sec = 0;
+		time_t ntime = mktime(&ltime);
+		if ( ntime == -1)
+			exit_error(ERROR+"bad timestamp value on command line");
+		char c_until[40];
+		sprintf(c_until,"%04d-%02d-%02d",ltime.tm_year+1900,ltime.tm_mon+1,ltime.tm_mday);
+		s_until = string(c_until);
+	}
+
+
+
 	read_evoconfig();
 
 	log("connect to Evohome server");
@@ -198,7 +226,7 @@ int main(int argc, char** argv)
 	}
 
 
-	if ( ! eclient.set_system_mode(systemId,mode) )
+	if ( ! eclient.set_system_mode(systemId, mode, s_until) )
 		exit_error(ERROR+"failed to set system mode to "+mode);
 	
 	log("updated system status to "+mode);

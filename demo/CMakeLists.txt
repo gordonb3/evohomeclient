@@ -12,27 +12,26 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wall")
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/evohomeclient)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/evohomeclient)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
 
 
 # main include dirs
-include_directories(${CMAKE_SOURCE_DIR}/src)
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/../src)
+include_directories(${CMAKE_SOURCE_DIR}/../include)
 
 
 ## Sources
 
 # Targets
-file(GLOB EVO_demo_SRCS demo/*.cpp)
+file(GLOB EVO_demo_SRCS src/*.cpp)
 
 
 # Main library
-file(GLOB_RECURSE include_SRCS include/*.cpp)
-file(GLOB_RECURSE EVO_client_SRCS evohomeclient/*.cpp)
-file(GLOB_RECURSE EVO_http_SRCS src/*.cpp)
-add_library(evohomeclient STATIC ${EVO_client_SRCS} ${EVO_http_SRCS} ${include_SRCS})
+file(GLOB_RECURSE include_SRCS ../include/*.cpp)
+file(GLOB_RECURSE EVO_client_SRCS ../src/*.cpp)
+add_library(evohomeclient STATIC ${EVO_client_SRCS} ${include_SRCS})
 
 
 # CURL library
@@ -48,8 +47,9 @@ endif(CURL_FOUND)
 
 
 foreach(demo ${EVO_demo_SRCS})
-get_filename_component(exefile ${demo} NAME_WE)
-add_executable(${exefile} ${demo})
-target_link_libraries(${exefile} evohomeclient ${CURL_LIBRARIES})
+  get_filename_component(exefile ${demo} NAME_WE)
+  add_executable(${exefile} ${demo})
+  target_link_libraries(${exefile} evohomeclient ${CURL_LIBRARIES})
+  message(STATUS "Created make target ${exefile}")
 endforeach(demo)
 
