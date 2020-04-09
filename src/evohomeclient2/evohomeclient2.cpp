@@ -19,6 +19,8 @@
 #include "jsoncpp/json.h"
 #include "connection/EvoHTTPBridge.hpp"
 #include "evohome/jsoncppbridge.hpp"
+#include "time/IsoTimeString.hpp"
+
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
 
@@ -127,8 +129,7 @@ EvohomeClient2::~EvohomeClient2()
  */
 void EvohomeClient2::init()
 {
-	m_tzoffset = -1;
-	m_lastDST = -1;
+	// all fine here
 }
 
 
@@ -337,7 +338,7 @@ void EvohomeClient2::get_dhw(const int location, const int gateway, const int te
 
 	std::vector<evohome::device::zone>().swap((*myTCS).dhw);
 
-	if (!has_dhw(myTCS))
+	if (!(*myTCS->jInstallationInfo).isMember("dhw"))
 		return;
 
 	Json::Value *jTCS = (*myTCS).jInstallationInfo;
@@ -786,7 +787,7 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 	{
 		szCurrentSetpoint = jSchedule["currentSetpoint"].asString();
 		if (convert_to_utc)
-			return local_to_utc(jSchedule["nextSwitchpoint"].asString());
+			return IsoTimeString::local_to_utc(jSchedule["nextSwitchpoint"].asString());
 		else
 			return jSchedule["nextSwitchpoint"].asString();
 	}
@@ -873,7 +874,7 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 	jSchedule["currentSetpoint"] = szCurrentSetpoint;
 	jSchedule["nextSwitchpoint"] = szDatetime;
 	if (convert_to_utc)
-		return local_to_utc(szDatetime);
+		return IsoTimeString::local_to_utc(szDatetime);
 	else
 		return szDatetime;
 }
@@ -1205,145 +1206,12 @@ bool EvohomeClient2::schedules_restore(const std::string &szFilename)
 
 /************************************************************************
  *									*
- *	Time functions							*
- *									*
- ************************************************************************/
-
-bool EvohomeClient2::verify_date(std::string szDateTime)
-{
-	if (szDateTime.length() < 10)
-		return false;
-	std::string szDate = szDateTime.substr(0,10);
-	struct tm mtime;
-	mtime.tm_isdst = -1;
-	mtime.tm_year = atoi(szDateTime.substr(0, 4).c_str()) - 1900;
-	mtime.tm_mon = atoi(szDateTime.substr(5, 2).c_str()) - 1;
-	mtime.tm_mday = atoi(szDateTime.substr(8, 2).c_str());
-	mtime.tm_hour = 12; // midday time - prevent date shift because of DST
-	mtime.tm_min = 0;
-	mtime.tm_sec = 0;
-	time_t ntime = mktime(&mtime);
-	if (ntime == -1)
-		return false;
-	char cDate[12];
-	sprintf_s(cDate, 12, "%04d-%02d-%02d", mtime.tm_year+1900, mtime.tm_mon+1, mtime.tm_mday);
-	return (szDate == std::string(cDate));
-}
-
-
-bool EvohomeClient2::verify_datetime(std::string szDateTime)
-{
-	if (szDateTime.length() < 19)
-		return false;
-	std::string szDate = szDateTime.substr(0,10);
-	std::string szTime = szDateTime.substr(11,8);
-	struct tm mtime;
-	mtime.tm_isdst = -1;
-	mtime.tm_year = atoi(szDateTime.substr(0, 4).c_str()) - 1900;
-	mtime.tm_mon = atoi(szDateTime.substr(5, 2).c_str()) - 1;
-	mtime.tm_mday = atoi(szDateTime.substr(8, 2).c_str());
-	mtime.tm_hour = atoi(szDateTime.substr(11, 2).c_str());
-	mtime.tm_min = atoi(szDateTime.substr(14, 2).c_str());
-	mtime.tm_sec = atoi(szDateTime.substr(17, 2).c_str());
-	time_t ntime = mktime(&mtime);
-	if (ntime == -1)
-		return false;
-	char cDate[12];
-	sprintf_s(cDate, 12, "%04d-%02d-%02d", mtime.tm_year+1900, mtime.tm_mon+1, mtime.tm_mday);
-	char cTime[12];
-	sprintf_s(cTime, 12, "%02d:%02d:%02d", mtime.tm_hour, mtime.tm_min, mtime.tm_sec);
-	return ( (szDate == std::string(cDate)) && (szTime == std::string(cTime)) );
-}
-
-
-/*
- * Convert a localtime ISO datetime string to UTC
- */
-std::string EvohomeClient2::local_to_utc(std::string local_time)
-{
-	if (local_time.size() <  19)
-		return "";
-	if (m_tzoffset == -1)
-	{
-		// calculate timezone offset once
-		time_t now = time(0);
-		struct tm utime;
-		gmtime_r(&now, &utime);
-		utime.tm_isdst = -1;
-		m_tzoffset = (int)difftime(mktime(&utime), now);
-	}
-	struct tm ltime;
-	ltime.tm_isdst = -1;
-	ltime.tm_year = atoi(local_time.substr(0, 4).c_str()) - 1900;
-	ltime.tm_mon = atoi(local_time.substr(5, 2).c_str()) - 1;
-	ltime.tm_mday = atoi(local_time.substr(8, 2).c_str());
-	ltime.tm_hour = atoi(local_time.substr(11, 2).c_str());
-	ltime.tm_min = atoi(local_time.substr(14, 2).c_str());
-	ltime.tm_sec = atoi(local_time.substr(17, 2).c_str()) + m_tzoffset;
-	mktime(&ltime);
-	if (m_lastDST == -1)
-		m_lastDST = ltime.tm_isdst;
-	else if ((m_lastDST != ltime.tm_isdst) && (m_lastDST != -1)) // DST changed - must recalculate timezone offset
-	{
-		ltime.tm_hour -= (ltime.tm_isdst - m_lastDST);
-		m_lastDST = ltime.tm_isdst;
-		m_tzoffset = -1;
-	}
-	char cUntil[22];
-	sprintf_s(cUntil, 22, "%04d-%02d-%02dT%02d:%02d:%02dZ", ltime.tm_year+1900, ltime.tm_mon+1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec);
-	return std::string(cUntil);
-}
-
-
-/*
- * Convert a UTC ISO datetime string to localtime
- */
-std::string EvohomeClient2::utc_to_local(std::string utc_time)
-{
-	if (utc_time.size() <  19)
-		return "";
-	if (m_tzoffset == -1)
-	{
-		// calculate timezone offset once
-		time_t now = time(0);
-		struct tm utime;
-		gmtime_r(&now, &utime);
-		utime.tm_isdst = -1;
-		m_tzoffset = (int)difftime(mktime(&utime), now);
-	}
-	struct tm ltime;
-	ltime.tm_isdst = -1;
-	ltime.tm_year = atoi(utc_time.substr(0, 4).c_str()) - 1900;
-	ltime.tm_mon = atoi(utc_time.substr(5, 2).c_str()) - 1;
-	ltime.tm_mday = atoi(utc_time.substr(8, 2).c_str());
-	ltime.tm_hour = atoi(utc_time.substr(11, 2).c_str());
-	ltime.tm_min = atoi(utc_time.substr(14, 2).c_str());
-	ltime.tm_sec = atoi(utc_time.substr(17, 2).c_str()) - m_tzoffset;
-	mktime(&ltime);
-	if (m_lastDST == -1)
-		m_lastDST = ltime.tm_isdst;
-	else if ((m_lastDST != ltime.tm_isdst) && (m_lastDST != -1)) // DST changed - must recalculate timezone offset
-	{
-		ltime.tm_hour += (ltime.tm_isdst - m_lastDST);
-		m_lastDST = ltime.tm_isdst;
-		m_tzoffset = -1;
-	}
-	char cUntil[40];
-	sprintf_s(cUntil, 40, "%04d-%02d-%02dT%02d:%02d:%02dA", ltime.tm_year+1900, ltime.tm_mon+1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec);
-	return std::string(cUntil);
-}
-
-
-/************************************************************************
- *									*
  *	Evohome overrides						*
  *									*
  ************************************************************************/
 
 /*
  * Set the system mode
- *
- * Note: setting an end date does not appear to work on most installations
  */
 bool EvohomeClient2::set_system_mode(const std::string szSystemId, const std::string szMode, const std::string szDateUntil)
 {
@@ -1365,7 +1233,7 @@ bool EvohomeClient2::set_system_mode(const std::string szSystemId, const int mod
 	szPutData.append("\",\"TimeUntil\":");
 	if (szDateUntil.empty())
 		szPutData.append("null");
-	else if (!verify_date(szDateUntil))
+	else if (!IsoTimeString::verify_date(szDateUntil))
 		return false;
 	else
 	{
@@ -1399,7 +1267,7 @@ bool EvohomeClient2::set_temperature(const std::string szZoneId, const std::stri
 	szPutData.append(",\"SetpointMode\":\"");
 	if (szTimeUntil.empty())
 		szPutData.append(evohome::API::zone::mode[1]);
-	else if (!verify_datetime(szTimeUntil))
+	else if (!IsoTimeString::verify_datetime(szTimeUntil))
 		return false;
 	else
 		szPutData.append(evohome::API::zone::mode[2]);
@@ -1450,7 +1318,8 @@ bool EvohomeClient2::has_dhw(const std::string szSystemId)
 }
 bool EvohomeClient2::has_dhw(evohome::device::temperatureControlSystem *tcs)
 {
-	return (*tcs->jInstallationInfo).isMember("dhw");
+	return ((*tcs).dhw.size() > 0);
+
 }
 
 
@@ -1479,7 +1348,7 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 		szPutData.append(evohome::API::zone::mode[0]);
 	else if (szTimeUntil.empty())
 		szPutData.append(evohome::API::zone::mode[1]);
-	else if (!verify_datetime(szTimeUntil))
+	else if (!IsoTimeString::verify_datetime(szTimeUntil))
 		return false;
 	else
 		szPutData.append(evohome::API::zone::mode[2]);

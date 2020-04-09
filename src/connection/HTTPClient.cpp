@@ -204,7 +204,7 @@ bool HTTPClient::ExecuteBinary(const connection::HTTP::method::value eMethod, co
 		curl_easy_setopt(curl, CURLOPT_URL, szUrl.c_str());
 		res = curl_easy_perform(curl);
 
-		if (res != CURLE_HTTP_RETURNED_ERROR)
+		if (res)
 		{
 			// create a custom header
 			std::stringstream ss;

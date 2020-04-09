@@ -7,8 +7,8 @@
  * Source code subject to GNU GENERAL PUBLIC LICENSE version 3
  */
 
+#pragma once
 #include "HTTPClient.hpp"
-#include <vector>
 
 
 class EvoHTTPBridge : public HTTPClient

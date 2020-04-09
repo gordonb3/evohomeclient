@@ -7,9 +7,7 @@
  * Source code subject to GNU GENERAL PUBLIC LICENSE version 3
  */
 
-#ifndef _EvohomeDevices
-#define _EvohomeDevices
-
+#pragma once
 #include <vector>
 #include <string>
 #include "jsoncpp/json.h"
@@ -58,6 +56,7 @@ namespace evohome {
 	} location;
 
   }; // namespace device
+
 }; // namespace evohome
 
-#endif
+

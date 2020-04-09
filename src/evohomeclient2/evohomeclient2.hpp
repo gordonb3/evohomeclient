@@ -187,33 +187,7 @@ public:
 	void cleanup();
 
 
-/************************************************************************
- *									*
- *	Helper functions						*
- *									*
- ************************************************************************/
-
-	bool verify_date(std::string date);
-	bool verify_datetime(std::string datetime);
-	std::string local_to_utc(std::string local_time);
-	std::string utc_to_local(std::string utc_time);
-
-
 private:
-	Json::Value m_jFullInstallation;
-	Json::Value m_jFullStatus;
-
-	std::string m_szUserId;
-	std::string m_szAccessToken;
-	std::string m_szRefreshToken;
-	time_t m_tTokenExpirationTime;
-	std::vector<std::string> m_vEvoHeader;
-	int m_tzoffset;
-	int m_lastDST;
-
-	std::string m_szLastError;
-	std::string m_szResponse;
-
 	void init();
 	bool obtain_access_token(const std::string &szCredentials);
 	bool get_user_id();
@@ -225,6 +199,21 @@ private:
 
 	bool get_zone_schedule_ex(const std::string szZoneId, const int zoneType);
 	bool set_zone_schedule_ex(const std::string szZoneId, const int zoneType, Json::Value *jSchedule);
+
+
+private:
+	Json::Value m_jFullInstallation;
+	Json::Value m_jFullStatus;
+
+	std::string m_szUserId;
+	std::string m_szAccessToken;
+	std::string m_szRefreshToken;
+	time_t m_tTokenExpirationTime;
+	std::vector<std::string> m_vEvoHeader;
+
+	std::string m_szLastError;
+	std::string m_szResponse;
+
 
 };
 
