@@ -45,50 +45,6 @@ void exit_error(std::string message)
 }
 
 
-evohome::device::temperatureControlSystem *select_temperatureControlSystem(EvohomeClient2 *eclient)
-{
-	int location = 0;
-	int gateway = 0;
-	int temperatureControlSystem = 0;
-	bool is_unique_heating_system = false;
-	if ( evoconfig.find("location") != evoconfig.end() ) {
-		if (verbose)
-			cout << "using location from " << configfile << endl;
-		int l = eclient->m_vLocations.size();
-		location = atoi(evoconfig["location"].c_str());
-		if (location > l)
-			exit_error(ERROR+"the Evohome location specified in "+configfile+" cannot be found");
-		is_unique_heating_system = ( (eclient->m_vLocations[location].gateways.size() == 1) &&
-						(eclient->m_vLocations[location].gateways[0].temperatureControlSystems.size() == 1)
-						);
-	}
-	if ( evoconfig.find("gateway") != evoconfig.end() ) {
-		if (verbose)
-			cout << "using gateway from " << configfile << endl;
-		int l = eclient->m_vLocations[location].gateways.size();
-		gateway = atoi(evoconfig["gateway"].c_str());
-		if (gateway > l)
-			exit_error(ERROR+"the Evohome gateway specified in "+configfile+" cannot be found");
-		is_unique_heating_system = (eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems.size() == 1);
-	}
-	if ( evoconfig.find("controlsystem") != evoconfig.end() ) {
-		if (verbose)
-			cout << "using controlsystem from " << configfile << endl;
-		int l = eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems.size();
-		temperatureControlSystem = atoi(evoconfig["controlsystem"].c_str());
-		if (temperatureControlSystem > l)
-			exit_error(ERROR+"the Evohome temperature controlsystem specified in "+configfile+" cannot be found");
-		is_unique_heating_system = true;
-	}
-
-
-	if ( ! is_unique_heating_system)
-		return NULL;
-
-	return &eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
-}
-
-
 /*
  * Create an associative array with the zone information we need
  */
@@ -125,7 +81,6 @@ int main(int argc, char** argv)
 		if (eclient->login(evoconfig["usr"],evoconfig["pw"]))
 		{
 			std::cout << "    connected (UK/EMEA)\n";
-			eclient->save_auth_to_file(AUTH_FILE_V2);
 		}
 		else
 		{
@@ -143,7 +98,6 @@ int main(int argc, char** argv)
 		if (v1client->login(evoconfig["usr"],evoconfig["pw"]))
 		{
 			std::cout << "    connected (US)\n";
-			v1client->save_auth_to_file(AUTH_FILE_V1);
 		}
 		else
 		{
@@ -151,7 +105,6 @@ int main(int argc, char** argv)
 			highdef = false;
 		}
 	}
-
 // retrieve Evohome installation
 	std::cout << "retrieve Evohome installation\n";
 	if (!eclient->full_installation())
@@ -165,37 +118,37 @@ int main(int argc, char** argv)
 	}
 
 // set Evohome heating system
-	int location = 0;
-	int gateway = 0;
-	int temperatureControlSystem = 0;
+	int locationIdx = 0;
+	int gatewayIdx = 0;
+	int systemIdx = 0;
 
 	if ( evoconfig.find("locationId") != evoconfig.end() )
 	{
-		while ( (eclient->m_vLocations[location].szLocationId != evoconfig["locationId"])  && (location < (int)eclient->m_vLocations.size()) )
-			location++;
-		if (location == (int)eclient->m_vLocations.size())
+		while ( (eclient->m_vLocations[locationIdx].szLocationId != evoconfig["locationId"])  && (locationIdx < (int)eclient->m_vLocations.size()) )
+			locationIdx++;
+		if (locationIdx == (int)eclient->m_vLocations.size())
 			exit_error(ERROR+"the Evohome location ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("gatewayId") != evoconfig.end() )
 	{
-		while ( (eclient->m_vLocations[location].gateways[gateway].szGatewayId != evoconfig["gatewayId"])  && (gateway < (int)eclient->m_vLocations[location].gateways.size()) )
-			gateway++;
-		if (gateway == (int)eclient->m_vLocations[location].gateways.size())
+		while ( (eclient->m_vLocations[locationIdx].gateways[gatewayIdx].szGatewayId != evoconfig["gatewayId"])  && (gatewayIdx < (int)eclient->m_vLocations[locationIdx].gateways.size()) )
+			gatewayIdx++;
+		if (gatewayIdx == (int)eclient->m_vLocations[locationIdx].gateways.size())
 			exit_error(ERROR+"the Evohome gateway ID specified in "+CONF_FILE+" cannot be found");
 	}
 	if ( evoconfig.find("systemId") != evoconfig.end() )
 	{
-		while ( (eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem].szSystemId != evoconfig["systemId"])  && (temperatureControlSystem < (int)eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems.size()) )
-			temperatureControlSystem++;
-		if (temperatureControlSystem == (int)eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems.size())
+		while ( (eclient->m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx].szSystemId != evoconfig["systemId"])  && (systemIdx < (int)eclient->m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems.size()) )
+			systemIdx++;
+		if (systemIdx == (int)eclient->m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems.size())
 			exit_error(ERROR+"the Evohome system ID specified in "+CONF_FILE+" cannot be found");
 	}
-	evohome::device::temperatureControlSystem *tcs = &eclient->m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	evohome::device::temperatureControlSystem *tcs = &eclient->m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx];
 
 
 // retrieve Evohome status
 	std::cout << "retrieve Evohome status\n";
-	if ( !	eclient->get_status(location) )
+	if ( !	eclient->get_status(locationIdx) )
 		std::cout << "status fail" << "\n";
 
 
@@ -276,6 +229,7 @@ int main(int argc, char** argv)
 
 	if (highdef)
 	{
+		v1client->save_auth_to_file(AUTH_FILE_V1);
 		v1client->cleanup();
 		delete v1client;
 	}
@@ -290,11 +244,12 @@ int main(int argc, char** argv)
 	std::cout << (*myzone->jStatus).toStyledString() << "\n";
 */
 
+/*
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << eclient->m_vLocations[0].jInstallationInfo->toStyledString() << "\n";
 	std::cout << "\nDump of full status\n";
 	std::cout << eclient->m_vLocations[0].jStatus->toStyledString() << "\n";
-
+*/
 
 /*
 	std::cout << "\nDump of full installationinfo\n";
@@ -302,6 +257,7 @@ int main(int argc, char** argv)
 */
 
 
+	eclient->save_auth_to_file(AUTH_FILE_V2);
 	eclient->cleanup();
 	delete eclient;
 

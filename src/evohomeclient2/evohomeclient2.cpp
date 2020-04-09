@@ -332,9 +332,9 @@ bool EvohomeClient2::get_user_id()
  *									*
  ************************************************************************/
 
-void EvohomeClient2::get_dhw(const int location, const int gateway, const int temperatureControlSystem)
+void EvohomeClient2::get_dhw(const int locationIdx, const int gatewayIdx, const int systemIdx)
 {
-	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx];
 
 	std::vector<evohome::device::zone>().swap((*myTCS).dhw);
 
@@ -351,9 +351,9 @@ void EvohomeClient2::get_dhw(const int location, const int gateway, const int te
 }
 
 
-void EvohomeClient2::get_zones(const int location, const int gateway, const int temperatureControlSystem)
+void EvohomeClient2::get_zones(const int locationIdx, const int gatewayIdx, const int systemIdx)
 {
-	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[location].gateways[gateway].temperatureControlSystems[temperatureControlSystem];
+	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx];
 
 	std::vector<evohome::device::zone>().swap((*myTCS).zones);
 	Json::Value *jTCS = (*myTCS).jInstallationInfo;
@@ -374,10 +374,10 @@ void EvohomeClient2::get_zones(const int location, const int gateway, const int 
 }
 
 
-void EvohomeClient2::get_temperatureControlSystems(const int location, const int gateway)
+void EvohomeClient2::get_temperatureControlSystems(const int locationIdx, const int gatewayIdx)
 {
 
-	evohome::device::gateway *myGateway = &m_vLocations[location].gateways[gateway];
+	evohome::device::gateway *myGateway = &m_vLocations[locationIdx].gateways[gatewayIdx];
 
 	std::vector<evohome::device::temperatureControlSystem>().swap((*myGateway).temperatureControlSystems);
 	Json::Value *jGateway = (*myGateway).jInstallationInfo;
@@ -394,29 +394,29 @@ void EvohomeClient2::get_temperatureControlSystems(const int location, const int
 		(*myGateway).temperatureControlSystems[i].szGatewayId = (*myGateway).szGatewayId;
 		(*myGateway).temperatureControlSystems[i].szLocationId = (*myGateway).szLocationId;
 
-		get_zones(location, gateway, i);
-		get_dhw(location, gateway, i);
+		get_zones(locationIdx, gatewayIdx, i);
+		get_dhw(locationIdx, gatewayIdx, i);
 	}
 }
 
 
-void EvohomeClient2::get_gateways(const int location)
+void EvohomeClient2::get_gateways(const int locationIdx)
 {
-	std::vector<evohome::device::gateway>().swap(m_vLocations[location].gateways);
-	Json::Value *jLocation = m_vLocations[location].jInstallationInfo;
+	std::vector<evohome::device::gateway>().swap(m_vLocations[locationIdx].gateways);
+	Json::Value *jLocation = m_vLocations[locationIdx].jInstallationInfo;
 
 	if (!(*jLocation)["gateways"].isArray())
 		return;
 
 	int l = static_cast<int>((*jLocation)["gateways"].size());
-	m_vLocations[location].gateways.resize(l);
+	m_vLocations[locationIdx].gateways.resize(l);
 	for (int i = 0; i < l; ++i)
 	{
-		m_vLocations[location].gateways[i].jInstallationInfo = &(*jLocation)["gateways"][i];
-		m_vLocations[location].gateways[i].szGatewayId = (*jLocation)["gateways"][i]["gatewayInfo"]["gatewayId"].asString();
-		m_vLocations[location].gateways[i].szLocationId = m_vLocations[location].szLocationId;
+		m_vLocations[locationIdx].gateways[i].jInstallationInfo = &(*jLocation)["gateways"][i];
+		m_vLocations[locationIdx].gateways[i].szGatewayId = (*jLocation)["gateways"][i]["gatewayInfo"]["gatewayId"].asString();
+		m_vLocations[locationIdx].gateways[i].szLocationId = m_vLocations[locationIdx].szLocationId;
 
-		get_temperatureControlSystems(location, i);
+		get_temperatureControlSystems(locationIdx, i);
 	}
 }
 
@@ -1308,9 +1308,9 @@ bool EvohomeClient2::cancel_temperature_override(const std::string szZoneId)
 }
 
 
-bool EvohomeClient2::has_dhw(const int locationId, const int gatewayId, const int systemId)
+bool EvohomeClient2::has_dhw(const int locationIdx, const int gatewayIdx, const int systemIdx)
 {
-	return has_dhw(&m_vLocations[locationId].gateways[gatewayId].temperatureControlSystems[systemId]);
+	return has_dhw(&m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx]);
 }
 bool EvohomeClient2::has_dhw(const std::string szSystemId)
 {

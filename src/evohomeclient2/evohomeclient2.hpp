@@ -90,8 +90,8 @@ public:
  *									*
  ************************************************************************/
 
-	bool get_status(int location);
-	bool get_status(std::string locationId);
+	bool get_status(int locationIdx);
+	bool get_status(std::string szLocationId);
 
 
 /************************************************************************
@@ -103,8 +103,8 @@ public:
  *									*
  ************************************************************************/
 
-	evohome::device::location *get_location_by_ID(std::string locationId);
-	evohome::device::gateway *get_gateway_by_ID(std::string gatewayId);
+	evohome::device::location *get_location_by_ID(std::string locationIdx);
+	evohome::device::gateway *get_gateway_by_ID(std::string gatewayIdx);
 	evohome::device::temperatureControlSystem *get_temperatureControlSystem_by_ID(std::string szSystemId);
 	evohome::device::temperatureControlSystem *get_zone_temperatureControlSystem(evohome::device::zone *zone);
 	evohome::device::zone *get_zone_by_ID(std::string szZoneId);
@@ -116,7 +116,7 @@ public:
  *									*
  *	is_single_heating_system() returns true if your full		*
  *	installation contains just one temperature control system.	*
- *	When true, your locationId, gatewayId and systemId will all	*
+ *	When true, your locationIdx, gatewayIdx and systemIdx will all	*
  *	be 0								*
  *									*
  *	has_dhw returns true if the installation at the specified	*
@@ -125,7 +125,7 @@ public:
  ************************************************************************/
 
 	bool is_single_heating_system();
-	bool has_dhw(const int locationId, const int gatewayId, const int systemId);
+	bool has_dhw(const int locationIdx, const int gatewayIdx, const int systemIdx);
 	bool has_dhw(evohome::device::temperatureControlSystem *tcs);
 	bool has_dhw(const std::string szSystemId);
 
@@ -192,10 +192,10 @@ private:
 	bool obtain_access_token(const std::string &szCredentials);
 	bool get_user_id();
 
-	void get_gateways(const int location);
-	void get_temperatureControlSystems(const int location, const int gateway);
-	void get_zones(const int location, const int gateway, const int temperatureControlSystem);
-	void get_dhw(const int location, const int gateway, const int temperatureControlSystem);
+	void get_gateways(const int locationIdx);
+	void get_temperatureControlSystems(const int locationIdx, const int gatewayIdx);
+	void get_zones(const int locationIdx, const int gatewayIdx, const int systemIdx);
+	void get_dhw(const int locationIdx, const int gatewayIdx, const int systemIdx);
 
 	bool get_zone_schedule_ex(const std::string szZoneId, const int zoneType);
 	bool set_zone_schedule_ex(const std::string szZoneId, const int zoneType, Json::Value *jSchedule);
