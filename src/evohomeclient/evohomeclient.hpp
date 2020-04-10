@@ -28,7 +28,6 @@ public:
 
 	std::vector<evohome::device::location> m_vLocations;
 
-
 /************************************************************************
  *									*
  *	Debug information and errors 					*
@@ -92,7 +91,7 @@ public:
  *									*
  ************************************************************************/
 
-	bool set_system_mode(const std::string szLocationId, const int mode, const std::string szDateUntil = "");
+	bool set_system_mode(const std::string szLocationId, const unsigned int mode, const std::string szDateUntil = "");
 	bool set_system_mode(const std::string szLocationId, const std::string szMode, const std::string szDateUntil = "");
 
 	bool set_temperature(const std::string szZoneId, const std::string temperature, const std::string szTimeUntil = "");
@@ -102,11 +101,20 @@ public:
 	bool cancel_dhw_override(const std::string szDHWId);
 
 
+/************************************************************************
+ *									*
+ *	Return Data Fields						*
+ *									*
+ ************************************************************************/
 
+	std::string get_zone_temperature(const std::string szZoneId, const unsigned int numDecimals = 1);
+	std::string get_zone_temperature(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx, const unsigned int numDecimals = 1);
 
-	std::string get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const int numDecimals = 1);
-	std::string get_zone_temperature(const int locationIdx, const int zoneIdx, const int numDecimals = 1);
-	std::string get_zone_temperature(const int locationIdx, const int gatewayIdx, const int zoneIdx, const int numDecimals = 1);
+	std::string get_zone_name(const std::string szZoneId);
+	std::string get_zone_name(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx);
+
+	std::string get_location_name(const std::string szLocationId);
+	std::string get_location_name(const unsigned int locationIdx);
 
 
 /************************************************************************
@@ -123,7 +131,7 @@ public:
  ************************************************************************/
 
 	bool is_single_heating_system();
-	bool has_dhw(const int locationIdx, const int gatewayIdx = 0);
+	bool has_dhw(const unsigned int locationIdx, const unsigned int gatewayIdx = 0);
 
 
 /************************************************************************
@@ -135,9 +143,11 @@ public:
  ************************************************************************/
 
 	int get_location_index(const std::string szLocationId);
-	int get_zone_index(const int locationIdx, const std::string szZoneId);
-	int get_zone_index(const int locationIdx, const int gatewayIdx, const std::string szZoneId);
+	int get_zone_index(const unsigned int locationIdx, const unsigned int gatewayIdx, const std::string szZoneId);
 
+
+	evohome::device::zone *get_zone_by_ID(const std::string szZoneId);
+	evohome::device::zone *get_zone_by_Name(std::string szZoneName);
 
 
 /************************************************************************
@@ -152,13 +162,32 @@ public:
 
 
 
+/************************************************************************
+ *									*
+ *	obsolete methods - keep for backwards compatibility		*
+ *									*
+ ************************************************************************/
+
+	std::string get_zone_temperature(const std::string szLocationId, const std::string szZoneId, const unsigned int numDecimals = 1);
+
+
+
+
+
 private:
 	void init();
 
-	void get_gateways(const int locationIdx);
-	void get_temperatureControlSystems(const int locationIdx, const int gatewayIdx);
-	void get_devices(const int locationIdx, const int gatewayIdx);
+	void get_gateways(const unsigned int locationIdx);
+	void get_temperatureControlSystems(const unsigned int locationIdx, const unsigned int gatewayIdx);
+	void get_devices(const unsigned int locationIdx, const unsigned int gatewayIdx);
 
+
+	bool verify_object_path(const unsigned int locationIdx);
+	bool verify_object_path(const unsigned int locationIdx, const unsigned int gatewayIdx);
+	bool verify_object_path(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx);
+
+	int get_zone_path_ID(const std::string szZoneId);
+	evohome::device::path::zone *get_zone_path(const std::string szZoneId);
 
 private:
 	Json::Value m_jFullInstallation;
@@ -168,6 +197,7 @@ private:
 	std::vector<std::string> m_vEvoHeader;
 	std::string m_szLastError;
 	std::string m_szResponse;
+	std::vector<evohome::device::path::zone> m_vZonePaths;
 };
 
 #endif

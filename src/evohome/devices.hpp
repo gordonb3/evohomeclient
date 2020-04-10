@@ -16,44 +16,58 @@
 namespace evohome {
   namespace device {
 
-	typedef struct _sZone // also used for Domestic Hot Water
-	{
-		std::string szZoneId;
-		std::string szSystemId;
-		std::string szGatewayId;
-		std::string szLocationId;
-		Json::Value *jInstallationInfo;
-		Json::Value *jStatus;
-		Json::Value schedule;
-	} zone;
+    typedef struct _sZone // also used for Domestic Hot Water
+    {
+      std::string szZoneId;
+      std::string szSystemId;
+      std::string szGatewayId;
+      std::string szLocationId;
+      Json::Value *jInstallationInfo;
+      Json::Value *jStatus;
+      Json::Value schedule;
+    } zone;
 
-	typedef struct _sTemperatureControlSystem
-	{
-		std::string szSystemId;
-		std::string szGatewayId;
-		std::string szLocationId;
-		Json::Value *jInstallationInfo;
-		Json::Value *jStatus;
-		std::vector<evohome::device::zone> zones;
-		std::vector<evohome::device::zone> dhw;
-	} temperatureControlSystem;
+    typedef struct _sTemperatureControlSystem
+    {
+      std::string szSystemId;
+      std::string szGatewayId;
+      std::string szLocationId;
+      Json::Value *jInstallationInfo;
+      Json::Value *jStatus;
+      std::vector<evohome::device::zone> zones;
+      std::vector<evohome::device::zone> dhw;
+    } temperatureControlSystem;
 
-	typedef struct _sGateway
-	{
-		std::string szGatewayId;
-		std::string szLocationId;
-		Json::Value *jInstallationInfo;
-		Json::Value *jStatus;
-		std::vector<evohome::device::temperatureControlSystem> temperatureControlSystems;
-	} gateway;
+    typedef struct _sGateway
+    {
+      std::string szGatewayId;
+      std::string szLocationId;
+      Json::Value *jInstallationInfo;
+      Json::Value *jStatus;
+      std::vector<evohome::device::temperatureControlSystem> temperatureControlSystems;
+    } gateway;
 
-	typedef struct _sLocation
-	{
-		std::string szLocationId;
-		Json::Value *jInstallationInfo;
-		Json::Value *jStatus;
-		std::vector<evohome::device::gateway> gateways;
-	} location;
+    typedef struct _sLocation
+    {
+      std::string szLocationId;
+      Json::Value *jInstallationInfo;
+      Json::Value *jStatus;
+      std::vector<evohome::device::gateway> gateways;
+    } location;
+
+
+    namespace path
+    {
+      typedef struct _sZone
+      {
+        uint8_t locationIdx;
+        uint8_t gatewayIdx;
+        uint8_t systemIdx;
+        uint8_t zoneIdx;
+        std::string szZoneId;
+      } zone;
+
+    }; // namespace path
 
   }; // namespace device
 

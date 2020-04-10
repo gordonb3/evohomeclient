@@ -81,6 +81,7 @@ int main(int argc, char** argv)
 		if (eclient->login(evoconfig["usr"],evoconfig["pw"]))
 		{
 			std::cout << "    connected (UK/EMEA)\n";
+			eclient->save_auth_to_file(AUTH_FILE_V2);
 		}
 		else
 		{
@@ -229,7 +230,7 @@ int main(int argc, char** argv)
 
 	if (highdef)
 	{
-		v1client->save_auth_to_file(AUTH_FILE_V1);
+		v1client->save_auth_to_file(AUTH_FILE_V1); // update the last use timestamp
 		v1client->cleanup();
 		delete v1client;
 	}
@@ -257,7 +258,6 @@ int main(int argc, char** argv)
 */
 
 
-	eclient->save_auth_to_file(AUTH_FILE_V2);
 	eclient->cleanup();
 	delete eclient;
 
