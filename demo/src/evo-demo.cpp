@@ -216,7 +216,7 @@ int main(int argc, char** argv)
 		std::cout << "    " << zone["zoneId"];
 		std::cout << " => " << zone["temperature"];
 		if (highdef)
-			std::cout << " => " << v1client->get_zone_temperature(tcs->zones[i].szLocationId, zone["zoneId"], SHOW_DECIMALS);
+			std::cout << " => " << v1client->get_zone_temperature(zone["zoneId"], SHOW_DECIMALS);
 		std::cout << " => " << zone["setpointMode"];
 		std::cout << " => " << zone["targetTemperature"];
 		std::cout << " => " << zone["until"];

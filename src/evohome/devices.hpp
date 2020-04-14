@@ -18,10 +18,11 @@ namespace evohome {
 
     typedef struct _sZone // also used for Domestic Hot Water
     {
+      uint8_t zoneIdx;
+      uint8_t systemIdx;
+      uint8_t gatewayIdx;
+      uint8_t locationIdx;
       std::string szZoneId;
-      std::string szSystemId;
-      std::string szGatewayId;
-      std::string szLocationId;
       Json::Value *jInstallationInfo;
       Json::Value *jStatus;
       Json::Value schedule;
@@ -29,9 +30,10 @@ namespace evohome {
 
     typedef struct _sTemperatureControlSystem
     {
+      uint8_t systemIdx;
+      uint8_t gatewayIdx;
+      uint8_t locationIdx;
       std::string szSystemId;
-      std::string szGatewayId;
-      std::string szLocationId;
       Json::Value *jInstallationInfo;
       Json::Value *jStatus;
       std::vector<evohome::device::zone> zones;
@@ -40,8 +42,9 @@ namespace evohome {
 
     typedef struct _sGateway
     {
+      uint8_t gatewayIdx;
+      uint8_t locationIdx;
       std::string szGatewayId;
-      std::string szLocationId;
       Json::Value *jInstallationInfo;
       Json::Value *jStatus;
       std::vector<evohome::device::temperatureControlSystem> temperatureControlSystems;
@@ -49,6 +52,7 @@ namespace evohome {
 
     typedef struct _sLocation
     {
+      uint8_t locationIdx;
       std::string szLocationId;
       Json::Value *jInstallationInfo;
       Json::Value jStatus;

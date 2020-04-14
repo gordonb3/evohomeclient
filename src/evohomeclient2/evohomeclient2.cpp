@@ -348,10 +348,11 @@ bool EvohomeClient2::get_user_id()
 	Json::Value *jTCS = (*myTCS).jInstallationInfo;
 	(*myTCS).dhw.resize(1);
 	(*myTCS).dhw[0].jInstallationInfo = &(*jTCS)["dhw"];
-	(*myTCS).dhw[0].szZoneId = (*jTCS)["dhw"]["dhwId"].asString();;
-	(*myTCS).dhw[0].szSystemId = (*myTCS).szSystemId;
-	(*myTCS).dhw[0].szGatewayId = (*myTCS).szGatewayId;
-	(*myTCS).dhw[0].szLocationId = (*myTCS).szLocationId;
+	(*myTCS).dhw[0].szZoneId = (*jTCS)["dhw"]["dhwId"].asString();
+	(*myTCS).dhw[0].zoneIdx = 128;
+	(*myTCS).dhw[0].systemIdx = systemIdx;
+	(*myTCS).dhw[0].gatewayIdx = gatewayIdx;
+	(*myTCS).dhw[0].locationIdx = locationIdx;
 
 	evohome::device::path::zone newzonepath = evohome::device::path::zone();
 	newzonepath.locationIdx = locationIdx;
@@ -379,9 +380,10 @@ bool EvohomeClient2::get_user_id()
 	{
 		(*myTCS).zones[i].jInstallationInfo = &(*jTCS)["zones"][i];
 		(*myTCS).zones[i].szZoneId = (*jTCS)["zones"][i]["zoneId"].asString();
-		(*myTCS).zones[i].szSystemId = (*myTCS).szSystemId;
-		(*myTCS).zones[i].szGatewayId = (*myTCS).szGatewayId;
-		(*myTCS).zones[i].szLocationId = (*myTCS).szLocationId;
+		(*myTCS).zones[i].zoneIdx = i;
+		(*myTCS).zones[i].systemIdx = systemIdx;
+		(*myTCS).zones[i].gatewayIdx = gatewayIdx;
+		(*myTCS).zones[i].locationIdx = locationIdx;
 
 		evohome::device::path::zone newzonepath = evohome::device::path::zone();
 		newzonepath.locationIdx = locationIdx;
@@ -411,8 +413,9 @@ bool EvohomeClient2::get_user_id()
 	{
 		(*myGateway).temperatureControlSystems[i].jInstallationInfo = &(*jGateway)["temperatureControlSystems"][i];
 		(*myGateway).temperatureControlSystems[i].szSystemId = (*jGateway)["temperatureControlSystems"][i]["systemId"].asString();
-		(*myGateway).temperatureControlSystems[i].szGatewayId = (*myGateway).szGatewayId;
-		(*myGateway).temperatureControlSystems[i].szLocationId = (*myGateway).szLocationId;
+		(*myGateway).temperatureControlSystems[i].locationIdx = locationIdx;
+		(*myGateway).temperatureControlSystems[i].gatewayIdx = gatewayIdx;
+		(*myGateway).temperatureControlSystems[i].systemIdx = i;
 
 		get_zones(locationIdx, gatewayIdx, i);
 		get_dhw(locationIdx, gatewayIdx, i);
@@ -434,7 +437,8 @@ bool EvohomeClient2::get_user_id()
 	{
 		m_vLocations[locationIdx].gateways[i].jInstallationInfo = &(*jLocation)["gateways"][i];
 		m_vLocations[locationIdx].gateways[i].szGatewayId = (*jLocation)["gateways"][i]["gatewayInfo"]["gatewayId"].asString();
-		m_vLocations[locationIdx].gateways[i].szLocationId = m_vLocations[locationIdx].szLocationId;
+		m_vLocations[locationIdx].gateways[i].locationIdx = locationIdx;
+		m_vLocations[locationIdx].gateways[i].gatewayIdx = i;
 
 		get_temperatureControlSystems(locationIdx, i);
 	}
@@ -470,6 +474,7 @@ bool EvohomeClient2::full_installation()
 		m_vLocations.push_back(newloc);
 		m_vLocations[i].jInstallationInfo = &m_jFullInstallation["locations"][i];
 		m_vLocations[i].szLocationId = m_jFullInstallation["locations"][i]["locationInfo"]["locationId"].asString();
+		m_vLocations[i].locationIdx = i;
 
 		get_gateways(i);
 	}

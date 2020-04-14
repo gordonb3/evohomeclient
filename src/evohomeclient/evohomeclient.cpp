@@ -311,20 +311,23 @@ bool EvohomeClient::is_session_valid()
 		return;
 
 	int l = static_cast<int>((*jLocation)["devices"].size());
+	int zoneIdx = 0;
 	for (int i = 0; i < l; ++i)
 	{
-		if ((*jLocation)["devices"][i]["gatewayId"].asString() == (*myTCS).szGatewayId)
+		if ((*jLocation)["devices"][i]["gatewayId"].asString() == m_vLocations[locationIdx].gateways[gatewayIdx].szGatewayId)
 		{
 			evohome::device::zone newDevice = evohome::device::zone();
 			evohome::device::path::zone newzonepath = evohome::device::path::zone();
 			newDevice.jInstallationInfo = &(*jLocation)["devices"][i];
 			newDevice.szZoneId = (*jLocation)["devices"][i]["deviceID"].asString();
-			newDevice.szGatewayId = (*myTCS).szGatewayId;
-			newDevice.szLocationId = (*myTCS).szLocationId;
+			newDevice.zoneIdx = zoneIdx;
+			newDevice.systemIdx = 0;
+			newDevice.gatewayIdx = gatewayIdx;
+			newDevice.locationIdx = locationIdx;
 			if ((*jLocation)["devices"][i]["thermostatModelType"].asString() == evohome::API::device::type[0])
 			{
 				(*myTCS).zones.push_back(newDevice);
-				newzonepath.zoneIdx = i;
+				newzonepath.zoneIdx = zoneIdx;
 			}
 			else if ((*jLocation)["devices"][i]["thermostatModelType"].asString() == evohome::API::device::type[1])
 			{
@@ -338,6 +341,7 @@ bool EvohomeClient::is_session_valid()
 			newzonepath.szZoneId = newDevice.szZoneId;
 			m_vZonePaths.push_back(newzonepath);
 
+			zoneIdx++;
 		}
 	}
 }
@@ -349,8 +353,9 @@ bool EvohomeClient::is_session_valid()
 	std::vector<evohome::device::temperatureControlSystem>().swap((*myGateway).temperatureControlSystems);
 
 	(*myGateway).temperatureControlSystems.resize(1);
-	(*myGateway).temperatureControlSystems[0].szGatewayId = (*myGateway).szGatewayId;
-	(*myGateway).temperatureControlSystems[0].szLocationId = (*myGateway).szLocationId;
+	(*myGateway).temperatureControlSystems[0].systemIdx = 0;
+	(*myGateway).temperatureControlSystems[0].gatewayIdx = gatewayIdx;
+	(*myGateway).temperatureControlSystems[0].locationIdx = locationIdx;
 
 	get_devices(locationIdx, gatewayIdx);
 }
@@ -387,7 +392,8 @@ bool EvohomeClient::is_session_valid()
 			{
 				evohome::device::gateway newGateway = evohome::device::gateway();
 				newGateway.szGatewayId = szGatewayID;
-				newGateway.szLocationId = m_vLocations[locationIdx].szLocationId;
+				newGateway.gatewayIdx = gatewayIdx;
+				newGateway.locationIdx = locationIdx;
 				m_vLocations[locationIdx].gateways.push_back(newGateway);
 
 				get_temperatureControlSystems(locationIdx, gatewayIdx);
@@ -434,6 +440,7 @@ bool EvohomeClient::full_installation()
 		m_vLocations.push_back(newloc);
 		m_vLocations[i].jInstallationInfo = &m_jFullInstallation["locations"][i];
 		m_vLocations[i].szLocationId = (*m_vLocations[i].jInstallationInfo)["locationID"].asString();
+		m_vLocations[i].locationIdx = i;
 
 		get_gateways(i);
 	}
