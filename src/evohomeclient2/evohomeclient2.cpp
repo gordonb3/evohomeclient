@@ -38,7 +38,7 @@
 namespace evohome {
 
   namespace schedule {
-    static const std::string weekday[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+    static const std::string dayOfWeek[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
   }; // namespace schedule
 
   namespace API {
@@ -811,40 +811,42 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, st
 	}
 
 	Json::Value *jSchedule = &(zone->schedule);
+	int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
+	if (numSchedules == 0)
+		return m_szEmptyFieldResponse;
 
 	struct tm ltime;
 	time_t now = time(0);
 	localtime_r(&now, &ltime);
-	int year = ltime.tm_year;
-	int month = ltime.tm_mon;
-	int day = ltime.tm_mday;
-	int wday = (force_weekday >= 0) ? (force_weekday % 7) : ltime.tm_wday;
+	int currentYear = ltime.tm_year;
+	int currentMonth = ltime.tm_mon;
+	int currentDay = ltime.tm_mday;
+	int currentWeekday = (force_weekday >= 0) ? (force_weekday % 7) : ltime.tm_wday;
 	char cDate[30];
 	sprintf_s(cDate, 30, "%04d-%02d-%02dT%02d:%02d:%02dA", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec);
-	std::string szDatetime = std::string(cDate);
-	if (szDatetime <= (*jSchedule)["nextSwitchpoint"].asString()) // our current cached values are still valid
+	std::string szCurrentTime = std::string(cDate);
+
+	std::string szNextTime = (*jSchedule)["nextSwitchpoint"].asString();
+	if (szCurrentTime <= szNextTime) // our current cached values are still valid
 	{
 		szCurrentSetpoint = (*jSchedule)["currentSetpoint"].asString();
 		if (!bLocaltime)
-			return IsoTimeString::local_to_utc((*jSchedule)["nextSwitchpoint"].asString());
-		else
-			return (*jSchedule)["nextSwitchpoint"].asString();
+			return IsoTimeString::local_to_utc(szNextTime);
+		return szNextTime;
 	}
 
 	std::string szTime;
 	bool found = false;
 	szCurrentSetpoint = "";
-	for (uint8_t d = 0; ((d < 7) && !found); d++)
+	for (uint8_t addDays = 0; ((addDays < 7) && !found); addDays++)
 	{
-		int tryDay = (wday + d) % 7;
-		std::string szTryDay = (std::string)evohome::schedule::weekday[tryDay];
+		int tryDay = (currentWeekday + addDays) % 7;
 		Json::Value *jDaySchedule;
 		// find day
-		int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
 		for (int i = 0; ((i < numSchedules) && !found); i++)
 		{
 			jDaySchedule = &(*jSchedule)["dailySchedules"][i];
-			if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
+			if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == evohome::schedule::dayOfWeek[tryDay]))
 				found = true;
 		}
 		if (!found)
@@ -854,38 +856,37 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, st
 		int numSwitchpoints = static_cast<int>((*jDaySchedule)["switchpoints"].size());
 		for (int i = 0; ((i < numSwitchpoints) && !found); ++i)
 		{
-			szTime = (*jDaySchedule)["switchpoints"][i]["timeOfDay"].asString();
+			Json::Value *jSwitchpoint = &(*jDaySchedule)["switchpoints"][i];
+			szTime = (*jSwitchpoint)["timeOfDay"].asString();
 			ltime.tm_isdst = -1;
-			ltime.tm_year = year;
-			ltime.tm_mon = month;
-			ltime.tm_mday = day + d;
+			ltime.tm_year = currentYear;
+			ltime.tm_mon = currentMonth;
+			ltime.tm_mday = currentDay + addDays;
 			ltime.tm_hour = std::atoi(szTime.substr(0, 2).c_str());
 			ltime.tm_min = std::atoi(szTime.substr(3, 2).c_str());
 			ltime.tm_sec = std::atoi(szTime.substr(6, 2).c_str());
 			time_t ntime = mktime(&ltime);
 			if (ntime > now)
 				found = true;
-			else if ((*jDaySchedule)["switchpoints"][i].isMember("temperature"))
-				szCurrentSetpoint = (*jDaySchedule)["switchpoints"][i]["temperature"].asString();
+			else if ((*jSwitchpoint).isMember("temperature"))
+				szCurrentSetpoint = (*jSwitchpoint)["temperature"].asString();
 			else
-				szCurrentSetpoint = (*jDaySchedule)["switchpoints"][i]["dhwState"].asString();
+				szCurrentSetpoint = (*jSwitchpoint)["dhwState"].asString();
 		}
 	}
 
 	if (szCurrentSetpoint.empty()) // got a direct match for the next switchpoint, need to go back in time to find the current setpoint
 	{
 		found = false;
-		for (uint8_t d = 1; ((d < 7) && !found); d++)
+		for (uint8_t subtractDays = 1; ((subtractDays < 7) && !found); subtractDays++)
 		{
-			int tryDay = (wday - d + 7) % 7;
-			std::string szTryDay = (std::string)evohome::schedule::weekday[tryDay];
+			int tryDay = (currentWeekday - subtractDays + 7) % 7;
 			Json::Value *jDaySchedule;
 			// find day
-			int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
 			for (int i = 0; ((i < numSchedules) && !found); i++)
 			{
 				jDaySchedule = &(*jSchedule)["dailySchedules"][i];
-				if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
+				if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == evohome::schedule::dayOfWeek[tryDay]))
 					found = true;
 			}
 			if (!found)
@@ -909,13 +910,12 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, st
 		return m_szEmptyFieldResponse;
 
 	sprintf_s(cDate, 30, "%04d-%02d-%02dT%sA", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, szTime.c_str()); // localtime => use CET to indicate that it is not UTC
-	szDatetime = std::string(cDate);
+	szNextTime = std::string(cDate);
 	(*jSchedule)["currentSetpoint"] = szCurrentSetpoint;
-	(*jSchedule)["nextSwitchpoint"] = szDatetime;
+	(*jSchedule)["nextSwitchpoint"] = szNextTime;
 	if (!bLocaltime)
-		return IsoTimeString::local_to_utc(szDatetime);
-	else
-		return szDatetime;
+		return IsoTimeString::local_to_utc(szNextTime);
+	return szNextTime;
 }
 
 
@@ -974,7 +974,7 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							continue;
 
 						std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szZoneId, 0);
-											EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
+						EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 						if (!m_szResponse.find("\"id\""))
 							continue;
@@ -995,7 +995,8 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							jBackupScheduleZone["dailySchedules"] = Json::arrayValue;
 						jBackupScheduleTCS[szZoneId] = jBackupScheduleZone;
 					}
-// Hot Water
+
+					// Hot Water
 					if (has_dhw(il, igw, itcs))
 					{
 						std::string szHotWaterId = (*jTCS)["dhw"]["dhwId"].asString();
@@ -1003,7 +1004,7 @@ bool EvohomeClient2::schedules_backup(const std::string &szFilename)
 							continue;
 
 						std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneSchedule, szHotWaterId, 1);
-											EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
+						EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
 
 						if ( ! m_szResponse.find("\"id\""))
 							return false;
