@@ -180,7 +180,9 @@ bool HTTPClient::ExecuteBinary(const connection::HTTP::method::value eMethod, co
 			curl_easy_setopt(curl, CURLOPT_HEADERDATA, &vHeaderData);
 		}
 
-		if (eMethod != connection::HTTP::method::HEAD)
+		if (eMethod == connection::HTTP::method::HEAD)
+			curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+		else
 		{
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, connection::HTTP::callback::write_curl_data);
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&vResponse);
