@@ -32,11 +32,15 @@ namespace evohome {
 
   namespace API {
 
+    namespace auth {
+	static const std::string applicationId = "91db1612-73fd-4500-91b2-e63b069b185c";
+    }; // namespace auth
+
     namespace header {
       static const std::string accept = "Accept: application/json, application/xml, text/json, text/x-json, text/javascript, text/xml";
       static const std::string jsondata = "Content-Type: application/json";
 
-    }; // namespace auth
+    }; // namespace header
 
     namespace system {
       static const std::string mode[7] = {"Auto", "HeatingOff", "AutoWithEco", "Away", "DayOff", "", "Custom"};
@@ -104,18 +108,17 @@ EvohomeClient::~EvohomeClient()
 	cleanup();
 }
 
+
 /************************************************************************
  *									*
- *	Curl helpers							*
+ *	Helpers								*
  *									*
  ************************************************************************/
 
-/*
- * Initialize curl web client
- */
+
 /* private */ void EvohomeClient::init()
 {
-	// all fine here
+	m_szEmptyFieldResponse = "<null>";
 }
 
 
@@ -133,6 +136,7 @@ std::string EvohomeClient::get_last_error()
 	return m_szLastError;
 }
 
+
 std::string EvohomeClient::get_last_response()
 {
 	return m_szResponse;
@@ -149,17 +153,16 @@ std::string EvohomeClient::get_last_response()
 /* 
  * login to evohome web server
  */
-bool EvohomeClient::login(const std::string &user, const std::string &password)
+bool EvohomeClient::login(const std::string &szUsername, const std::string &szPassword)
 {
 	std::vector<std::string> vLoginHeader;
 	vLoginHeader.push_back(evohome::API::header::accept);
 	vLoginHeader.push_back(evohome::API::header::jsondata);
 
-	std::string szPostdata = "{'Username': '";
-	szPostdata.append(user);
-	szPostdata.append("', 'Password': '");
-	szPostdata.append(EvoHTTPBridge::URLEncode(password));
-	szPostdata.append("', 'ApplicationId': '91db1612-73fd-4500-91b2-e63b069b185c'}");
+	std::string szPostdata = "{'Username': '{usr}', 'Password': '{pwd}', 'ApplicationId': '{app}'}";
+	szPostdata.replace(61, 5, evohome::API::auth::applicationId);
+	szPostdata.replace(35, 5, EvoHTTPBridge::URLEncode(szPassword));
+	szPostdata.replace(14, 5, szUsername);
 
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::login);
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, m_szResponse, -1);
@@ -640,6 +643,7 @@ int EvohomeClient::get_location_index(const std::string szLocationId)
 	return -1;
 }
 
+
 int EvohomeClient::get_zone_index(const unsigned int locationIdx, const unsigned int gatewayIdx, const std::string szZoneId)
 {
 	if (!verify_object_path(locationIdx, gatewayIdx))
@@ -742,25 +746,22 @@ evohome::device::zone *EvohomeClient::get_zone_by_Name(std::string szZoneName)
  *									*
  ************************************************************************/
 
+
 /* 
  * Extract a zone's temperature from system status
  */
 std::string EvohomeClient::get_zone_temperature(const std::string szZoneId, const unsigned int numDecimals)
 {
-	evohome::device::path::zone *zp = get_zone_path(szZoneId);
-	if (zp == NULL)
-		return "<null>";
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
 
-	return get_zone_temperature(zp->locationIdx, zp->gatewayIdx, zp->zoneIdx, numDecimals);
+	return get_zone_temperature(myZone, numDecimals);
 }
-std::string EvohomeClient::get_zone_temperature(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx, const unsigned int numDecimals)
+std::string EvohomeClient::get_zone_temperature(const evohome::device::zone *zone, const unsigned int numDecimals)
 {
-	if (!verify_object_path(locationIdx, gatewayIdx, zoneIdx))
-		return "<null>";
-
-	evohome::device::temperatureControlSystem *myTCS = &m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[0];
-	Json::Value *jZone = (*myTCS).zones[zoneIdx].jInstallationInfo;
-	double temperature = (*jZone)["thermostat"]["indoorTemperature"].asDouble();
+	Json::Value *jZoneThermostat = &(*zone->jInstallationInfo)["thermostat"];
+	double temperature = (*jZoneThermostat)["indoorTemperature"].asDouble();
 	if (temperature > 127) // allow rounding error
 		return "128"; // unit is offline
 
@@ -773,21 +774,74 @@ std::string EvohomeClient::get_zone_temperature(const unsigned int locationIdx, 
 }
 
 
+std::string EvohomeClient::get_zone_setpoint(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_setpoint(myZone);
+}
+std::string EvohomeClient::get_zone_setpoint(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneSetpoint = &(*zone->jInstallationInfo)["thermostat"]["changeableValues"]["heatSetpoint"];
+	return (*jZoneSetpoint)["value"].asString();
+}
+
+
+std::string EvohomeClient::get_zone_mode(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_mode(myZone);
+}
+std::string EvohomeClient::get_zone_mode(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneChangeable = &(*zone->jInstallationInfo)["thermostat"]["changeableValues"];
+	if ((*zone).zoneIdx & 128) // DHW
+		return (*jZoneChangeable)["status"].asString();
+	return (*jZoneChangeable)["heatSetpoint"]["status"].asString();
+}
+
+
+std::string EvohomeClient::get_zone_mode_until(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_mode(myZone);
+}
+std::string EvohomeClient::get_zone_mode_until(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneChangeable = &(*zone->jInstallationInfo)["thermostat"]["changeableValues"];
+	if ((*zone).zoneIdx & 128) // DHW
+	{
+		if ((*jZoneChangeable).isMember("nextTime"))
+			return (*jZoneChangeable)["nextTime"].asString();
+		return m_szEmptyFieldResponse;
+	}
+	Json::Value *jZoneSetpoint = &(*jZoneChangeable)["heatSetpoint"];
+	if ((*jZoneSetpoint).isMember("nextTime"))
+		return (*jZoneSetpoint)["nextTime"].asString();
+	return m_szEmptyFieldResponse;
+}
+
+
 std::string EvohomeClient::get_zone_name(const std::string szZoneId)
 {
-	evohome::device::path::zone *zp = get_zone_path(szZoneId);
-	if (zp == NULL)
-		return "<null>";
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
 
-	return get_zone_name(zp->locationIdx, zp->gatewayIdx, zp->zoneIdx);
+	return get_zone_name(myZone);
 }
-std::string EvohomeClient::get_zone_name(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx)
+std::string EvohomeClient::get_zone_name(const evohome::device::zone *zone)
 {
-	if (!verify_object_path(locationIdx, gatewayIdx, zoneIdx))
-		return "<null>";
-
-	Json::Value *jZone = m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[0].zones[zoneIdx].jInstallationInfo;
-	return (*jZone)["name"].asString();
+	Json::Value *jZoneInfo = (*zone).jInstallationInfo;
+	return (*jZoneInfo)["name"].asString();
 }
 
 
@@ -795,14 +849,14 @@ std::string EvohomeClient::get_location_name(const std::string szLocationId)
 {
 	int iloc = get_location_index(szLocationId);
 	if (iloc < 0)
-		return "<null>";
+		return m_szEmptyFieldResponse;
 
 	return get_location_name(iloc);
 }
 std::string EvohomeClient::get_location_name(const unsigned int locationIdx)
 {
 	if (!verify_object_path(locationIdx))
-		return "<null>";
+		return m_szEmptyFieldResponse;
 
 	Json::Value *jLocation = m_vLocations[locationIdx].jInstallationInfo;
 	return (*jLocation)["name"].asString();

@@ -58,8 +58,11 @@ namespace evohome {
     namespace zone {
       static const std::string mode[7] = {"FollowSchedule", "PermanentOverride", "TemporaryOverride", "OpenWindow", "LocalOverride", "RemoteOverride", "Unknown"};
       static const std::string type[2] = {"temperatureZone", "domesticHotWater"};
-      static const std::string state[2] = {"Off", "On"};
     }; // namespace zone
+
+    namespace dhw {
+      static const std::string state[2] = {"Off", "On"};
+    }; // namespace dhw
 
     namespace uri {
       static const std::string base = EVOHOME_HOST"/WebAPI/emea/api/v1/";
@@ -131,7 +134,7 @@ EvohomeClient2::~EvohomeClient2()
  */
 /* private */ void EvohomeClient2::init()
 {
-	// all fine here
+	m_szEmptyFieldResponse = "<null>";
 }
 
 
@@ -173,6 +176,7 @@ std::string EvohomeClient2::get_last_response()
 	szPostdata.append("&Cache-Control=no-store%20no-cache&Pragma=no-cache&scope=EMEA-V1-Basic%20EMEA-V1-Anonymous&Connection=Keep-Alive&");
 	szPostdata.append(szCredentials);
 
+std::cout << szPostdata << "\n";
 	std::string szUrl = EVOHOME_HOST"/Auth/OAuth/Token";
 	EvoHTTPBridge::SafePOST(szUrl, szPostdata, vLoginHeader, m_szResponse, -1);
 
@@ -589,6 +593,18 @@ bool EvohomeClient2::get_status(std::string szLocationId)
  ************************************************************************/
 
 
+int EvohomeClient2::get_location_index(const std::string szLocationId)
+{
+	int numLocations = static_cast<int>(m_vLocations.size());
+	for (int iloc = 0; iloc < numLocations; iloc++)
+	{
+		if (m_vLocations[iloc].szLocationId == szLocationId)
+			return iloc;
+	}
+	return -1;
+}
+
+
 /* private */ evohome::device::path::zone *EvohomeClient2::get_zone_path(const std::string szZoneId)
 {
 	int iz = get_zone_path_ID(szZoneId);
@@ -713,7 +729,7 @@ evohome::device::temperatureControlSystem *EvohomeClient2::get_zone_temperatureC
  *
  * Returns ISO datatime string relative to UTC (timezone 'Z')
  */
-std::string EvohomeClient2::request_next_switchpoint(std::string szZoneId)
+std::string EvohomeClient2::request_next_switchpoint(const std::string szZoneId)
 {
 	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::zoneUpcoming, szZoneId, 0);
 	EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1);
@@ -722,7 +738,7 @@ std::string EvohomeClient2::request_next_switchpoint(std::string szZoneId)
 	if (evohome::parse_json_string(m_szResponse, jSwitchPoint) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
-		return "";
+		return m_szEmptyFieldResponse;
 	}
 
 	std::string szSwitchpoint = jSwitchPoint["time"].asString();
@@ -750,11 +766,11 @@ bool EvohomeClient2::get_dhw_schedule(const std::string szDHWId)
 
 	if (!m_szResponse.find("\"id\""))
 		return false;
-	evohome::device::zone *zone = get_zone_by_ID(szZoneId);
-	if (zone == NULL)
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
 		return false;
 
-	if (evohome::parse_json_string(m_szResponse, zone->schedule) < 0)
+	if (evohome::parse_json_string(m_szResponse, myZone->schedule) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -769,41 +785,32 @@ bool EvohomeClient2::get_dhw_schedule(const std::string szDHWId)
  * Returns ISO datatime string relative to localtime (hardcoded as timezone 'A')
  * Extended function also fills szCurrentSetpoint with the current target temperature
  */
-std::string EvohomeClient2::get_next_switchpoint(std::string szZoneId)
+std::string EvohomeClient2::get_next_switchpoint(const std::string szZoneId)
 {
-	evohome::device::zone *zone = get_zone_by_ID(szZoneId);
-	if (zone == NULL)
-		return "";
-	return get_next_switchpoint(zone);
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+	return get_next_switchpoint(myZone);
 }
-std::string EvohomeClient2::get_next_switchpoint(evohome::device::temperatureControlSystem *tcs, int zone)
-{
-	if (tcs->zones[zone].schedule.isNull())
-	{
-		if (!get_zone_schedule(tcs->zones[zone].szZoneId))
-			return "";
-	}
-	return get_next_switchpoint(tcs->zones[zone].schedule);
-}
-std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *hz)
-{
-	if (hz->schedule.isNull())
-	{
-		int zoneType = ((*hz->jInstallationInfo).isMember("dhwId")) ? 1 : 0;
-		if (!get_zone_schedule_ex(hz->szZoneId, zoneType))
-			return "";
-	}
-	return get_next_switchpoint(hz->schedule);
-}
-std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule)
+std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, bool bLocaltime)
 {
 	std::string szCurrentSetpoint;
-	return get_next_switchpoint(jSchedule, szCurrentSetpoint, -1, false);
+	return get_next_switchpoint(zone, szCurrentSetpoint, -1, bLocaltime);
 }
-std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday, bool convert_to_utc)
+std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, std::string &szCurrentSetpoint, const bool bLocaltime)
 {
-	if (jSchedule.isNull())
-		return "";
+	return get_next_switchpoint(zone, szCurrentSetpoint, -1, bLocaltime);
+}
+std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, std::string &szCurrentSetpoint, const int force_weekday, const bool bLocaltime)
+{
+	if (zone->schedule.isNull())
+	{
+		int zoneType = ((*zone->jInstallationInfo).isMember("dhwId")) ? 1 : 0;
+		if (!get_zone_schedule_ex(zone->szZoneId, zoneType))
+			return m_szEmptyFieldResponse;
+	}
+
+	Json::Value *jSchedule = &(zone->schedule);
 
 	struct tm ltime;
 	time_t now = time(0);
@@ -815,13 +822,13 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 	char cDate[30];
 	sprintf_s(cDate, 30, "%04d-%02d-%02dT%02d:%02d:%02dA", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, ltime.tm_hour, ltime.tm_min, ltime.tm_sec);
 	std::string szDatetime = std::string(cDate);
-	if (szDatetime <= jSchedule["nextSwitchpoint"].asString()) // our current cached values are still valid
+	if (szDatetime <= (*jSchedule)["nextSwitchpoint"].asString()) // our current cached values are still valid
 	{
-		szCurrentSetpoint = jSchedule["currentSetpoint"].asString();
-		if (convert_to_utc)
-			return IsoTimeString::local_to_utc(jSchedule["nextSwitchpoint"].asString());
+		szCurrentSetpoint = (*jSchedule)["currentSetpoint"].asString();
+		if (!bLocaltime)
+			return IsoTimeString::local_to_utc((*jSchedule)["nextSwitchpoint"].asString());
 		else
-			return jSchedule["nextSwitchpoint"].asString();
+			return (*jSchedule)["nextSwitchpoint"].asString();
 	}
 
 	std::string szTime;
@@ -833,10 +840,10 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 		std::string szTryDay = (std::string)evohome::schedule::weekday[tryDay];
 		Json::Value *jDaySchedule;
 		// find day
-		int numSchedules = static_cast<int>(jSchedule["dailySchedules"].size());
+		int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
 		for (int i = 0; ((i < numSchedules) && !found); i++)
 		{
-			jDaySchedule = &jSchedule["dailySchedules"][i];
+			jDaySchedule = &(*jSchedule)["dailySchedules"][i];
 			if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
 				found = true;
 		}
@@ -874,10 +881,10 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 			std::string szTryDay = (std::string)evohome::schedule::weekday[tryDay];
 			Json::Value *jDaySchedule;
 			// find day
-			int numSchedules = static_cast<int>(jSchedule["dailySchedules"].size());
+			int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
 			for (int i = 0; ((i < numSchedules) && !found); i++)
 			{
-				jDaySchedule = &jSchedule["dailySchedules"][i];
+				jDaySchedule = &(*jSchedule)["dailySchedules"][i];
 				if (((*jDaySchedule).isMember("dayOfWeek")) && ((*jDaySchedule)["dayOfWeek"] == szTryDay))
 					found = true;
 			}
@@ -899,59 +906,16 @@ std::string EvohomeClient2::get_next_switchpoint(Json::Value &jSchedule, std::st
 	}
 
 	if (!found)
-		return "";
+		return m_szEmptyFieldResponse;
 
 	sprintf_s(cDate, 30, "%04d-%02d-%02dT%sA", ltime.tm_year + 1900, ltime.tm_mon + 1, ltime.tm_mday, szTime.c_str()); // localtime => use CET to indicate that it is not UTC
 	szDatetime = std::string(cDate);
-	jSchedule["currentSetpoint"] = szCurrentSetpoint;
-	jSchedule["nextSwitchpoint"] = szDatetime;
-	if (convert_to_utc)
+	(*jSchedule)["currentSetpoint"] = szCurrentSetpoint;
+	(*jSchedule)["nextSwitchpoint"] = szDatetime;
+	if (!bLocaltime)
 		return IsoTimeString::local_to_utc(szDatetime);
 	else
 		return szDatetime;
-}
-
-
-/*
- * Find a zone's next switchpoint (UTC)
- *
- * Returns ISO datatime string relative to UTZ (timezone 'Z')
- * Extended function also fills szCurrentSetpoint with the current target temperature
- */
-std::string EvohomeClient2::get_next_utcswitchpoint(std::string szZoneId)
-{
-	evohome::device::zone *zone = get_zone_by_ID(szZoneId);
-	if (zone == NULL)
-		return "";
-	return get_next_utcswitchpoint(zone);
-}
-std::string EvohomeClient2::get_next_utcswitchpoint(evohome::device::temperatureControlSystem *tcs, int zone)
-{
-	if (tcs->zones[zone].schedule.isNull())
-	{
-		if (!get_zone_schedule(tcs->zones[zone].szZoneId))
-			return "";
-	}
-	return get_next_utcswitchpoint(tcs->zones[zone].schedule);
-}
-std::string EvohomeClient2::get_next_utcswitchpoint(evohome::device::zone *hz)
-{
-	if (hz->schedule.isNull())
-	{
-		int zoneType = ((*hz->jInstallationInfo).isMember("dhwId")) ? 1 : 0;
-		if (!get_zone_schedule_ex(hz->szZoneId, zoneType))
-			return "";
-	}
-	return get_next_utcswitchpoint(hz->schedule);
-}
-std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule)
-{
-	std::string szCurrentSetpoint;
-	return get_next_switchpoint(jSchedule, szCurrentSetpoint, -1, true);
-}
-std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday)
-{
-	return get_next_switchpoint(jSchedule, szCurrentSetpoint, force_weekday, true);
 }
 
 
@@ -1374,9 +1338,9 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 {
 	std::string szPutData = "{\"State\":\"";
 	if (szMode == "on")
-		szPutData.append(evohome::API::zone::state[1]);
+		szPutData.append(evohome::API::dhw::state[1]);
 	else if (szMode == "off")
-		szPutData.append(evohome::API::zone::state[0]);
+		szPutData.append(evohome::API::dhw::state[0]);
 	szPutData.append("\",\"Mode\":\"");
 	if (szMode == "auto")
 		szPutData.append(evohome::API::zone::mode[0]);
@@ -1404,6 +1368,111 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 	if (m_szResponse.find("\"id\""))
 		return true;
 	return false;
+}
+
+
+
+/************************************************************************
+ *									*
+ *	Return Data Fields						*
+ *									*
+ ************************************************************************/
+
+std::string EvohomeClient2::get_zone_temperature(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_temperature(myZone);
+}
+std::string EvohomeClient2::get_zone_temperature(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneStatus = (*zone).jInstallationInfo;
+	return (*jZoneStatus)["temperatureStatus"]["temperature"].asString();
+}
+
+
+std::string EvohomeClient2::get_zone_setpoint(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_setpoint(myZone);
+}
+std::string EvohomeClient2::get_zone_setpoint(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneStatus = (*zone).jStatus;
+	return (*jZoneStatus)["setpointStatus"]["targetHeatTemperature"].asString();
+}
+
+
+std::string EvohomeClient2::get_zone_mode(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_mode(myZone);
+}
+std::string EvohomeClient2::get_zone_mode(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneStatus = (*zone).jStatus;
+	return (*jZoneStatus)["setpointStatus"]["setpointMode"].asString();
+}
+
+
+std::string EvohomeClient2::get_zone_mode_until(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_mode(myZone);
+}
+std::string EvohomeClient2::get_zone_mode_until(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneSetpoint = &(*zone->jInstallationInfo)["setpointStatus"];
+	std::string result;
+	if ((*jZoneSetpoint).isMember("until"))
+		result = (*jZoneSetpoint)["until"].asString();
+	if (result.size() > 10)
+		return result;
+	return m_szEmptyFieldResponse;
+}
+
+
+std::string EvohomeClient2::get_zone_name(const std::string szZoneId)
+{
+	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
+	if (myZone == NULL)
+		return m_szEmptyFieldResponse;
+
+	return get_zone_name(myZone);
+}
+std::string EvohomeClient2::get_zone_name(const evohome::device::zone *zone)
+{
+	Json::Value *jZoneInfo = (*zone).jInstallationInfo;
+	return (*jZoneInfo)["name"].asString();
+}
+
+
+std::string EvohomeClient2::get_location_name(const std::string szLocationId)
+{
+	int iloc = get_location_index(szLocationId);
+	if (iloc < 0)
+		return m_szEmptyFieldResponse;
+
+	return get_location_name(iloc);
+}
+std::string EvohomeClient2::get_location_name(const unsigned int locationIdx)
+{
+	if (!verify_object_path(locationIdx))
+		return m_szEmptyFieldResponse;
+
+	Json::Value *jLocation = m_vLocations[locationIdx].jInstallationInfo;
+	return (*jLocation)["name"].asString();
 }
 
 

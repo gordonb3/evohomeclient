@@ -86,6 +86,7 @@ int main(int argc, char** argv)
 		else
 		{
 			std::cout << "    login failed (UK/EMEA)\n";
+std::cout << eclient->get_last_response() << "\n";
 			exit(1);
 		}
 	}
@@ -228,14 +229,6 @@ int main(int argc, char** argv)
 
 	std::cout << "\n";
 
-	if (highdef)
-	{
-		v1client->save_auth_to_file(AUTH_FILE_V1); // update the last use timestamp
-		v1client->cleanup();
-		delete v1client;
-	}
-
-
 // Dump json to screen
 /*
 	evohome::device::zone *myzone = eclient->get_zone_by_ID(lastzone);
@@ -245,18 +238,28 @@ int main(int argc, char** argv)
 	std::cout << (*myzone->jStatus).toStyledString() << "\n";
 */
 
+
 /*
 	std::cout << "\nDump of full installationinfo\n";
 	std::cout << eclient->m_vLocations[0].jInstallationInfo->toStyledString() << "\n";
 	std::cout << "\nDump of full status\n";
-	std::cout << eclient->m_vLocations[0].jStatus->toStyledString() << "\n";
+	std::cout << eclient->m_vLocations[0].jStatus.toStyledString() << "\n";
 */
 
 /*
-	std::cout << "\nDump of full installationinfo\n";
-	std::cout << v1client->j_fi.toStyledString() << "\n";
+	if (highdef)
+	{
+		std::cout << "\nDump of full installationinfo\n";
+		std::cout << v1client->m_vLocations[0].jInstallationInfo->toStyledString() << "\n";
+	}
 */
 
+	if (highdef)
+	{
+		v1client->save_auth_to_file(AUTH_FILE_V1); // update the last use timestamp
+		v1client->cleanup();
+		delete v1client;
+	}
 
 	eclient->cleanup();
 	delete eclient;

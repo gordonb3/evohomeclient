@@ -103,6 +103,8 @@ public:
  *									*
  ************************************************************************/
 
+	int get_location_index(const std::string szLocationId);
+
 	evohome::device::zone *get_zone_by_ID(std::string szZoneId);
 	evohome::device::zone *get_zone_by_Name(std::string szZoneName);
 	evohome::device::location *get_location_by_ID(std::string locationIdx);
@@ -148,6 +150,31 @@ public:
 
 /************************************************************************
  *									*
+ *	Return Data Fields						*
+ *									*
+ ************************************************************************/
+
+	std::string get_zone_temperature(const std::string szZoneId);
+	std::string get_zone_temperature(const evohome::device::zone *zone);
+
+	std::string get_zone_setpoint(const std::string szZoneId);
+	std::string get_zone_setpoint(const evohome::device::zone *zone);
+
+	std::string get_zone_mode(const std::string szZoneId);
+	std::string get_zone_mode(const evohome::device::zone *zone);
+
+	std::string get_zone_mode_until(const std::string szZoneId);
+	std::string get_zone_mode_until(const evohome::device::zone *zone);
+
+	std::string get_zone_name(const std::string szZoneId);
+	std::string get_zone_name(const evohome::device::zone *zone);
+
+	std::string get_location_name(const std::string szLocationId);
+	std::string get_location_name(const unsigned int locationIdx);
+
+
+/************************************************************************
+ *									*
  *	Schedule handlers						*
  *									*
  ************************************************************************/
@@ -159,22 +186,15 @@ public:
 	bool get_dhw_schedule(const std::string szDHWId);
 	bool get_zone_schedule(const std::string szZoneId);
 
-	bool set_dhw_schedule(const std::string szDHWId, Json::Value *jSchedule);
-	bool set_zone_schedule(const std::string szZoneId, Json::Value *jSchedule);
+	bool set_dhw_schedule(const std::string szDHWId, Json::Value *jZoneSchedule);
+	bool set_zone_schedule(const std::string szZoneId, Json::Value *jZoneSchedule);
 
-	std::string get_next_switchpoint(evohome::device::temperatureControlSystem *tcs, int zone);
-	std::string get_next_switchpoint(evohome::device::zone *hz);
-	std::string get_next_switchpoint(std::string szZoneId);
-	std::string get_next_switchpoint(Json::Value &jSchedule);
-	std::string get_next_switchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday = -1, bool convert_to_utc = false);
+	std::string get_next_switchpoint(const std::string szZoneId);
+	std::string get_next_switchpoint(evohome::device::zone *zone, bool bLocaltime = true);
+	std::string get_next_switchpoint(evohome::device::zone *zone, std::string &szCurrentSetpoint, const bool bLocaltime = true);
+	std::string get_next_switchpoint(evohome::device::zone *zone, std::string &szCurrentSetpoint, const int forceWeekday = -1, const bool bLocaltime = true);
 
-	std::string get_next_utcswitchpoint(evohome::device::temperatureControlSystem *tcs, int zone);
-	std::string get_next_utcswitchpoint(evohome::device::zone *hz);
-	std::string get_next_utcswitchpoint(std::string szZoneId);
-	std::string get_next_utcswitchpoint(Json::Value &jSchedule);
-	std::string get_next_utcswitchpoint(Json::Value &jSchedule, std::string &szCurrentSetpoint, int force_weekday = -1);
-
-	std::string request_next_switchpoint(std::string szZoneId);
+	std::string request_next_switchpoint(const std::string szZoneId);
 
 
 /************************************************************************
@@ -199,7 +219,7 @@ private:
 	void get_dhw(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int systemIdx);
 
 	bool get_zone_schedule_ex(const std::string szZoneId, const unsigned int zoneType);
-	bool set_zone_schedule_ex(const std::string szZoneId, const unsigned int zoneType, Json::Value *jSchedule);
+	bool set_zone_schedule_ex(const std::string szZoneId, const unsigned int zoneType, Json::Value *jZoneSchedule);
 
 	bool verify_object_path(const unsigned int locationIdx);
 	bool verify_object_path(const unsigned int locationIdx, const unsigned int gatewayIdx);
@@ -223,6 +243,7 @@ private:
 
 	std::vector<evohome::device::path::zone> m_vZonePaths;
 
+	std::string m_szEmptyFieldResponse;
 };
 
 #endif

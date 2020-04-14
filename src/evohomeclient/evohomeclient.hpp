@@ -64,7 +64,7 @@ public:
  *									*
  ************************************************************************/
 
-	bool login(const std::string &user, const std::string &password);
+	bool login(const std::string &szUsername, const std::string &szPassword);
 	bool save_auth_to_file(const std::string &szFilename);
 	bool load_auth_from_file(const std::string &szFilename);
 
@@ -108,10 +108,19 @@ public:
  ************************************************************************/
 
 	std::string get_zone_temperature(const std::string szZoneId, const unsigned int numDecimals = 1);
-	std::string get_zone_temperature(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx, const unsigned int numDecimals = 1);
+	std::string get_zone_temperature(const evohome::device::zone *zone, const unsigned int numDecimals);
+
+	std::string get_zone_setpoint(const std::string szZoneId);
+	std::string get_zone_setpoint(const evohome::device::zone *zone);
+
+	std::string get_zone_mode(const std::string szZoneId);
+	std::string get_zone_mode(const evohome::device::zone *zone);
+
+	std::string get_zone_mode_until(const std::string szZoneId);
+	std::string get_zone_mode_until(const evohome::device::zone *zone);
 
 	std::string get_zone_name(const std::string szZoneId);
-	std::string get_zone_name(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx);
+	std::string get_zone_name(const evohome::device::zone *zone);
 
 	std::string get_location_name(const std::string szLocationId);
 	std::string get_location_name(const unsigned int locationIdx);
@@ -181,7 +190,6 @@ private:
 	void get_temperatureControlSystems(const unsigned int locationIdx, const unsigned int gatewayIdx);
 	void get_devices(const unsigned int locationIdx, const unsigned int gatewayIdx);
 
-
 	bool verify_object_path(const unsigned int locationIdx);
 	bool verify_object_path(const unsigned int locationIdx, const unsigned int gatewayIdx);
 	bool verify_object_path(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int zoneIdx);
@@ -198,6 +206,8 @@ private:
 	std::string m_szLastError;
 	std::string m_szResponse;
 	std::vector<evohome::device::path::zone> m_vZonePaths;
+
+	std::string m_szEmptyFieldResponse;
 };
 
 #endif
