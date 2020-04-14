@@ -119,10 +119,12 @@ EvohomeClient2::EvohomeClient2()
 	init();
 }
 
+
 EvohomeClient2::~EvohomeClient2()
 {
 	cleanup();
 }
+
 
 /*
  * Initialize
@@ -142,7 +144,6 @@ void EvohomeClient2::cleanup()
 }
 
 
-
 std::string EvohomeClient2::get_last_error()
 {
 	return m_szLastError;
@@ -153,6 +154,7 @@ std::string EvohomeClient2::get_last_response()
 {
 	return m_szResponse;
 }
+
 
 /************************************************************************
  *									*
@@ -206,6 +208,7 @@ std::string EvohomeClient2::get_last_response()
 
 	return get_user_id();
 }
+
 
 /*
  * Login to the evohome portal
@@ -331,6 +334,7 @@ bool EvohomeClient2::get_user_id()
  *	Evohome heating installations retrieval				*
  *									*
  ************************************************************************/
+
 
 /* private */ void EvohomeClient2::get_dhw(const unsigned int locationIdx, const unsigned int gatewayIdx, const unsigned int systemIdx)
 {
@@ -479,6 +483,7 @@ bool EvohomeClient2::full_installation()
  *									*
  ************************************************************************/
 
+
 /*
  * Retrieve evohome status info
  */
@@ -490,22 +495,20 @@ bool EvohomeClient2::get_status(const unsigned int locationIdx)
 		return false;
 	}
 
-	evohome::device::location *_tLocation = &m_vLocations[locationIdx];
-	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::status, _tLocation->szLocationId);
+	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::status, m_vLocations[locationIdx].szLocationId);
 	if (!EvoHTTPBridge::SafeGET(szUrl, m_vEvoHeader, m_szResponse, -1))
 	{
 		m_szLastError = "HTTP error during fetch status";
 		return false;
 	}
 
-	m_jFullStatus.clear();
-	if (evohome::parse_json_string(m_szResponse, m_jFullStatus) < 0)
+	m_vLocations[locationIdx].jStatus.clear();
+	if (evohome::parse_json_string(m_szResponse, m_vLocations[locationIdx].jStatus) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
 	}
-	_tLocation->jStatus = &m_jFullStatus;
-	Json::Value *jLocation = _tLocation->jStatus;
+	Json::Value *jLocation = &m_vLocations[locationIdx].jStatus;
 
 	// get gateway status
 	if (!(*jLocation)["gateways"].isArray())
@@ -556,7 +559,7 @@ bool EvohomeClient2::get_status(const unsigned int locationIdx)
 			}
 		}
 	}
-	return true;;
+	return true;
 }
 
 
@@ -573,6 +576,7 @@ bool EvohomeClient2::get_status(std::string szLocationId)
 	return false;
 }
 
+
 /************************************************************************
  *									*
  *	Locate Evohome elements						*
@@ -587,6 +591,7 @@ bool EvohomeClient2::get_status(std::string szLocationId)
 		return NULL;
 	return &m_vZonePaths[iz];
 }
+
 
 /* private */ int EvohomeClient2::get_zone_path_ID(const std::string szZoneId)
 {
@@ -696,6 +701,7 @@ evohome::device::temperatureControlSystem *EvohomeClient2::get_zone_temperatureC
  *	Schedule handlers						*
  *									*
  ************************************************************************/
+
 
 /*
  * Retrieve a zone's next switchpoint
@@ -942,7 +948,6 @@ std::string EvohomeClient2::get_next_utcswitchpoint(Json::Value &jSchedule, std:
 {
 	return get_next_switchpoint(jSchedule, szCurrentSetpoint, force_weekday, true);
 }
-
 
 
 /*
@@ -1231,6 +1236,7 @@ bool EvohomeClient2::schedules_restore(const std::string &szFilename)
  *									*
  ************************************************************************/
 
+
 /*
  * Set the system mode
  */
@@ -1275,7 +1281,6 @@ bool EvohomeClient2::set_system_mode(const std::string szSystemId, const unsigne
 		return true;
 	return false;
 }
-
 
 
 /*
@@ -1397,12 +1402,12 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 }
 
 
-
 /************************************************************************
  *									*
  *	Sanity checks							*
  *									*
  ************************************************************************/
+
 
 /* 
  * Passing an ID beyond a vector's size will cause a segfault
@@ -1433,6 +1438,4 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 		 (zoneIdx < static_cast<unsigned int>(m_vLocations[locationIdx].gateways[gatewayIdx].temperatureControlSystems[systemIdx].zones.size()))
 	       );
 }
-
-
 

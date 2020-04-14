@@ -211,7 +211,6 @@ private:
 
 private:
 	Json::Value m_jFullInstallation;
-	Json::Value m_jFullStatus;
 
 	std::string m_szUserId;
 	std::string m_szAccessToken;

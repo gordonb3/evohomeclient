@@ -51,7 +51,7 @@ namespace evohome {
     {
       std::string szLocationId;
       Json::Value *jInstallationInfo;
-      Json::Value *jStatus;
+      Json::Value jStatus;
       std::vector<evohome::device::gateway> gateways;
     } location;
 
