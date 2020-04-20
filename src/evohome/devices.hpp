@@ -25,7 +25,7 @@ namespace evohome {
       std::string szZoneId;
       Json::Value *jInstallationInfo;
       Json::Value *jStatus;
-      Json::Value schedule;
+      Json::Value jSchedule;
     } zone;
 
     typedef struct _sTemperatureControlSystem

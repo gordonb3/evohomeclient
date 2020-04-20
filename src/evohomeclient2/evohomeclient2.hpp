@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 #include "jsoncpp/json.h"
-#include "evohome/devices.hpp"
+#include "../evohome/devices.hpp"
 
 
 class EvohomeClient2
@@ -62,6 +62,7 @@ public:
 	bool renew_login();
 	bool save_auth_to_file(const std::string &szFilename);
 	bool load_auth_from_file(const std::string &szFilename);
+	bool is_session_valid();
 
 
 /************************************************************************
@@ -163,8 +164,8 @@ public:
 	std::string get_zone_mode(const std::string szZoneId);
 	std::string get_zone_mode(const evohome::device::zone *zone);
 
-	std::string get_zone_mode_until(const std::string szZoneId);
-	std::string get_zone_mode_until(const evohome::device::zone *zone);
+	std::string get_zone_mode_until(const std::string szZoneId, const bool bLocaltime = true);
+	std::string get_zone_mode_until(const evohome::device::zone *zone, const bool bLocaltime = true);
 
 	std::string get_zone_name(const std::string szZoneId);
 	std::string get_zone_name(const evohome::device::zone *zone);
@@ -206,6 +207,15 @@ public:
 	EvohomeClient2();
 	~EvohomeClient2();
 	void cleanup();
+
+
+/************************************************************************
+ *									*
+ *	Config options							*
+ *									*
+ ************************************************************************/
+
+	void set_empty_field_response(std::string szResponse);
 
 
 private:

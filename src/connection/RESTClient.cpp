@@ -7,7 +7,7 @@
  * Source code subject to GNU GENERAL PUBLIC LICENSE version 3
  */
 
-#include "HTTPClient.hpp"
+#include "RESTClient.hpp"
 #include <curl/curl.h>
 #include <algorithm>
 #include <sstream>
@@ -19,13 +19,13 @@
  *									*
  ************************************************************************/
 
-bool		HTTPClient::m_bCurlGlobalInitialized = false;
-bool		HTTPClient::m_bVerifyHost = false;
-bool		HTTPClient::m_bVerifyPeer = false;
-long		HTTPClient::m_iConnectionTimeout = 10;
-long		HTTPClient::m_iTimeout = 90;
-std::string	HTTPClient::m_sUserAgent = "curle/1.0";
-std::string	HTTPClient::m_sCookieFile = "cookie.txt";
+bool		RESTClient::m_bCurlGlobalInitialized = false;
+bool		RESTClient::m_bVerifyHost = false;
+bool		RESTClient::m_bVerifyPeer = false;
+long		RESTClient::m_iConnectionTimeout = 10;
+long		RESTClient::m_iTimeout = 90;
+std::string	RESTClient::m_sUserAgent = "curle/1.0";
+std::string	RESTClient::m_sCookieFile = "cookie.txt";
 
 
 /************************************************************************
@@ -34,29 +34,29 @@ std::string	HTTPClient::m_sCookieFile = "cookie.txt";
  *									*
  ************************************************************************/
 
-void HTTPClient::SetConnectionTimeout(const long timeout)
+void RESTClient::SetConnectionTimeout(const long timeout)
 {
 	m_iConnectionTimeout = timeout;
 }
 
-void HTTPClient::SetTimeout(const long timeout)
+void RESTClient::SetTimeout(const long timeout)
 {
 	m_iTimeout = timeout;
 }
 
-void HTTPClient::SetSecurityOptions(const bool verifypeer, const bool verifyhost)
+void RESTClient::SetSecurityOptions(const bool verifypeer, const bool verifyhost)
 {
 	m_bVerifyPeer = verifypeer;
 	m_bVerifyHost = verifyhost;
 }
 
-void HTTPClient::SetUserAgent(const std::string &useragent)
+void RESTClient::SetUserAgent(const std::string &useragent)
 {
 	m_sUserAgent = useragent;
 }
 
 
-void HTTPClient::SetCookieFile(const std::string &cookiefile)
+void RESTClient::SetCookieFile(const std::string &cookiefile)
 {
 	m_sCookieFile = cookiefile;
 }
@@ -98,7 +98,7 @@ size_t write_curl_data(void *contents, size_t size, size_t nmemb, void *userp)
  *									*
  ************************************************************************/
 
-bool HTTPClient::CheckIfGlobalInitDone()
+bool RESTClient::CheckIfGlobalInitDone()
 {
 	if (!m_bCurlGlobalInitialized)
 	{
@@ -110,7 +110,7 @@ bool HTTPClient::CheckIfGlobalInitDone()
 	return true;
 }
 
-void HTTPClient::Cleanup()
+void RESTClient::Cleanup()
 {
 	if (m_bCurlGlobalInitialized)
 	{
@@ -119,7 +119,7 @@ void HTTPClient::Cleanup()
 	}
 }
 
-void HTTPClient::SetGlobalOptions(void *curlobj)
+void RESTClient::SetGlobalOptions(void *curlobj)
 {
 	CURL *curl=(CURL *)curlobj;
 	curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC | CURLAUTH_DIGEST);
@@ -146,7 +146,7 @@ void HTTPClient::SetGlobalOptions(void *curlobj)
  *									*
  ************************************************************************/
 
-bool HTTPClient::ExecuteBinary(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::vector<unsigned char> &vResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut)
+bool RESTClient::ExecuteBinary(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::vector<unsigned char> &vResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut)
 {
 	try
 	{
@@ -229,7 +229,7 @@ bool HTTPClient::ExecuteBinary(const connection::HTTP::method::value eMethod, co
 	}
 }
 
-bool HTTPClient::Execute(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::string &szResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut, const bool bIgnoreNoDataReturned)
+bool RESTClient::Execute(const connection::HTTP::method::value eMethod, const std::string &szUrl, const std::string &szPostdata, const std::vector<std::string> &vExtraHeaders, std::string &szResponse, std::vector<std::string> &vHeaderData, const bool bFollowRedirect, const long iTimeOut, const bool bIgnoreNoDataReturned)
 {
 
 	szResponse = "";

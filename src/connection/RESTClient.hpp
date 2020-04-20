@@ -12,9 +12,9 @@
 #include <vector>
 
 namespace connection {
-namespace HTTP {
+  namespace HTTP {
 
-namespace method {
+    namespace method {
 	enum value
 	{
 		GET		= 0x0001,
@@ -25,15 +25,15 @@ namespace method {
 		PATCH		= 0x0020,
 		OPTIONS		= 0x0040
 	};
-}; // namespace method
+    }; // namespace method
 
-}; // namespace HTTP
+  }; // namespace HTTP
 }; // namespace connection
 
 
 
 
-class HTTPClient
+class RESTClient
 {
 protected:
 	/************************************************************************
@@ -53,7 +53,7 @@ public:
 	 *									*
 	 * CAUTION!								*
 	 * Because these settings are global they may affect other classes	*
-	 * that use HTTPClient_Base or any class that extends it. Please add	*
+	 * that use RESTClient_Base or any class that extends it. Please add	*
 	 * a debug line to your class if you access any of these functions.	*
 	 *									*
 	 ************************************************************************/

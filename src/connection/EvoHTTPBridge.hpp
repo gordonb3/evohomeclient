@@ -8,10 +8,10 @@
  */
 
 #pragma once
-#include "HTTPClient.hpp"
+#include "RESTClient.hpp"
 
 
-class EvoHTTPBridge : public HTTPClient
+class EvoHTTPBridge : public RESTClient
 {
 public:
 	static bool SafeGET(const std::string &szUrl, const std::vector<std::string> &ExtraHeaders, std::string &szResponse, const long iTimeOut = -1);

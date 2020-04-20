@@ -14,7 +14,7 @@
 #include <string>
 #include "jsoncpp/json.h"
 
-#include "evohome/devices.hpp"
+#include "../evohome/devices.hpp"
 
 
 class EvohomeClient
@@ -67,7 +67,6 @@ public:
 	bool login(const std::string &szUsername, const std::string &szPassword);
 	bool save_auth_to_file(const std::string &szFilename);
 	bool load_auth_from_file(const std::string &szFilename);
-
 	bool is_session_valid();
 
 /************************************************************************
@@ -169,6 +168,14 @@ public:
 	~EvohomeClient();
 	void cleanup();
 
+
+/************************************************************************
+ *									*
+ *	Config options							*
+ *									*
+ ************************************************************************/
+
+	void set_empty_field_response(std::string szResponse);
 
 
 /************************************************************************

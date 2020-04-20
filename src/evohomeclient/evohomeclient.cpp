@@ -17,9 +17,9 @@
 #include <stdexcept>
 
 #include "evohomeclient.hpp"
-#include "connection/EvoHTTPBridge.hpp"
-#include "evohome/jsoncppbridge.hpp"
-#include "time/IsoTimeString.hpp"
+#include "../connection/EvoHTTPBridge.hpp"
+#include "../evohome/jsoncppbridge.hpp"
+#include "../time/IsoTimeString.hpp"
 
 
 
@@ -61,7 +61,7 @@ namespace evohome {
       static const std::string deviceMode = "devices/{id}/thermostat/changeableValues";
       static const std::string deviceSetpoint = "/heatSetpoint";
 
-      static std::string get_uri(const std::string &szApiFunction, const std::string &szId = "", const unsigned int zoneType = 0)
+      static std::string get_uri(const std::string &szApiFunction, const std::string &szId = "", const uint8_t zoneType = 0)
       {
         std::string result = szApiFunction;
 
@@ -142,6 +142,11 @@ std::string EvohomeClient::get_last_response()
 	return m_szResponse;
 }
 
+
+void EvohomeClient::set_empty_field_response(std::string szResponse)
+{
+	m_szEmptyFieldResponse = szResponse;
+}
 
 /************************************************************************
  *									*

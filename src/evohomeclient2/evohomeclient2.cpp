@@ -16,10 +16,9 @@
 #include <stdexcept>
 
 #include "evohomeclient2.hpp"
-#include "jsoncpp/json.h"
-#include "connection/EvoHTTPBridge.hpp"
-#include "evohome/jsoncppbridge.hpp"
-#include "time/IsoTimeString.hpp"
+#include "../connection/EvoHTTPBridge.hpp"
+#include "../evohome/jsoncppbridge.hpp"
+#include "../time/IsoTimeString.hpp"
 
 
 #define EVOHOME_HOST "https://tccna.honeywell.com"
@@ -77,7 +76,7 @@ namespace evohome {
       static const std::string zoneUpcoming = "{type}/{id}/schedule/upcommingSwitchpoints?count=1";
 
 
-      static std::string get_uri(const std::string &szApiFunction, const std::string &szId = "", const unsigned int zoneType = 0)
+      static std::string get_uri(const std::string &szApiFunction, const std::string &szId = "", const uint8_t zoneType = 0)
       {
         std::string result = szApiFunction;
 
@@ -156,6 +155,12 @@ std::string EvohomeClient2::get_last_error()
 std::string EvohomeClient2::get_last_response()
 {
 	return m_szResponse;
+}
+
+
+void EvohomeClient2::set_empty_field_response(std::string szResponse)
+{
+	m_szEmptyFieldResponse = szResponse;
 }
 
 
@@ -265,6 +270,12 @@ bool EvohomeClient2::save_auth_to_file(const std::string &szFilename)
 }
 
 
+bool EvohomeClient2::is_session_valid()
+{
+	return (m_tTokenExpirationTime > time(NULL));
+}
+
+
 /*
  * Load authorization key from a backup file
  */
@@ -293,7 +304,7 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 	m_szRefreshToken = jAuth["refresh_token"].asString();
 	m_tTokenExpirationTime = static_cast<time_t>(atoi(jAuth["expiration_time"].asString().c_str()));
 
-	if (time(NULL) > m_tTokenExpirationTime)
+	if (!is_session_valid())
 	{
 		bool bRenew = renew_login();
 		if (bRenew)
@@ -770,7 +781,7 @@ bool EvohomeClient2::get_dhw_schedule(const std::string szDHWId)
 	if (myZone == NULL)
 		return false;
 
-	if (evohome::parse_json_string(m_szResponse, myZone->schedule) < 0)
+	if (evohome::parse_json_string(m_szResponse, myZone->jSchedule) < 0)
 	{
 		m_szLastError = "Failed to parse server response as JSON";
 		return false;
@@ -803,14 +814,14 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, st
 }
 std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, std::string &szCurrentSetpoint, const int force_weekday, const bool bLocaltime)
 {
-	if (zone->schedule.isNull())
+	if (zone->jSchedule.isNull())
 	{
 		int zoneType = ((*zone->jInstallationInfo).isMember("dhwId")) ? 1 : 0;
 		if (!get_zone_schedule_ex(zone->szZoneId, zoneType))
 			return m_szEmptyFieldResponse;
 	}
 
-	Json::Value *jSchedule = &(zone->schedule);
+	Json::Value *jSchedule = &(zone->jSchedule);
 	int numSchedules = static_cast<int>((*jSchedule)["dailySchedules"].size());
 	if (numSchedules == 0)
 		return m_szEmptyFieldResponse;
@@ -1100,7 +1111,7 @@ bool EvohomeClient2::load_schedules_from_file(const std::string &szFilename)
 						continue;
 					evohome::device::zone *zone = get_zone_by_ID(zones[iz]);
 					if (zone != NULL)
-						zone->schedule = (*jTCS)[zones[iz]];
+						zone->jSchedule = (*jTCS)[zones[iz]];
 				}
 			}
 		}
@@ -1185,13 +1196,13 @@ bool EvohomeClient2::schedules_restore(const std::string &szFilename)
 				{
 					evohome::device::zone *zone = &(*tcs).zones[iz];
 					std::cout << "        Zone: " << (*(*zone).jInstallationInfo)["name"].asString() << "\n";
-					set_zone_schedule((*zone).szZoneId, &(*zone).schedule);
+					set_zone_schedule((*zone).szZoneId, &(*zone).jSchedule);
 				}
 				if (has_dhw(tcs))
 				{
 					std::string dhwId = (*(*tcs).jStatus)["dhw"]["dhwId"].asString();
 					std::cout << "        Hot water\n";
-					set_dhw_schedule(dhwId, &(*tcs).dhw[0].schedule);
+					set_dhw_schedule(dhwId, &(*tcs).dhw[0].jSchedule);
 				}
 			}
 		}
@@ -1424,7 +1435,7 @@ std::string EvohomeClient2::get_zone_mode(const evohome::device::zone *zone)
 }
 
 
-std::string EvohomeClient2::get_zone_mode_until(const std::string szZoneId)
+std::string EvohomeClient2::get_zone_mode_until(const std::string szZoneId, const bool bLocaltime)
 {
 	evohome::device::zone *myZone = get_zone_by_ID(szZoneId);
 	if (myZone == NULL)
@@ -1432,15 +1443,17 @@ std::string EvohomeClient2::get_zone_mode_until(const std::string szZoneId)
 
 	return get_zone_mode(myZone);
 }
-std::string EvohomeClient2::get_zone_mode_until(const evohome::device::zone *zone)
+std::string EvohomeClient2::get_zone_mode_until(const evohome::device::zone *zone, const bool bLocaltime)
 {
 	Json::Value *jZoneSetpoint = &(*zone->jInstallationInfo)["setpointStatus"];
-	std::string result;
+	std::string szResult;
 	if ((*jZoneSetpoint).isMember("until"))
-		result = (*jZoneSetpoint)["until"].asString();
-	if (result.size() > 10)
-		return result;
-	return m_szEmptyFieldResponse;
+		szResult = (*jZoneSetpoint)["until"].asString();
+	if (szResult.size() < 10)
+		return m_szEmptyFieldResponse;
+	if (!bLocaltime)
+		return szResult;
+	return IsoTimeString::utc_to_local(szResult);
 }
 
 

@@ -10,19 +10,18 @@
 #include "EvoHTTPBridge.hpp"
 #include <sstream>
 #include <iomanip>
-#include <iostream>
 
 namespace evohome {
-namespace API {
-namespace method {
+  namespace API {
+    namespace method {
 	enum value {
 		GET	= (connection::HTTP::method::HEAD | connection::HTTP::method::GET),
 		POST	= (connection::HTTP::method::HEAD | connection::HTTP::method::POST),
 		PUT	= (connection::HTTP::method::HEAD | connection::HTTP::method::PUT),
 		DELETE	= (connection::HTTP::method::HEAD | connection::HTTP::method::DELETE)
 	};
-}; // namespace method
-}; // namespace API
+    }; // namespace method
+  }; // namespace API
 }; // namespace evohome
 
 
