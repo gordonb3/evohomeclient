@@ -13,7 +13,7 @@
 #include <vector>
 #include <string>
 #include "jsoncpp/json.h"
-#include "../evohome/devices.hpp"
+#include "../common/devices.hpp"
 
 
 class EvohomeClient2
@@ -108,8 +108,8 @@ public:
 
 	evohome::device::zone *get_zone_by_ID(std::string szZoneId);
 	evohome::device::zone *get_zone_by_Name(std::string szZoneName);
-	evohome::device::location *get_location_by_ID(std::string locationIdx);
-	evohome::device::gateway *get_gateway_by_ID(std::string gatewayIdx);
+	evohome::device::location *get_location_by_ID(std::string szLocationId);
+	evohome::device::gateway *get_gateway_by_ID(std::string szGatewayId);
 	evohome::device::temperatureControlSystem *get_temperatureControlSystem_by_ID(std::string szSystemId);
 	evohome::device::temperatureControlSystem *get_zone_temperatureControlSystem(evohome::device::zone *zone);
 
@@ -173,6 +173,11 @@ public:
 	std::string get_location_name(const std::string szLocationId);
 	std::string get_location_name(const unsigned int locationIdx);
 
+	std::string get_system_mode(const std::string szSystemId);
+	std::string get_system_mode(const evohome::device::temperatureControlSystem *tcs);
+
+	std::string get_system_mode_until(const std::string szSystemId, const bool bLocaltime = true);
+	std::string get_system_mode_until(const evohome::device::temperatureControlSystem *tcs, const bool bLocaltime = true);
 
 /************************************************************************
  *									*

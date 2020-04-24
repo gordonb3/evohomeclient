@@ -169,7 +169,7 @@ std::cout << eclient->get_last_response() << "\n";
 	std::cout << "\nSystem info:\n";
 	std::cout << "    Model Type = " << (*tcs->jInstallationInfo)["modelType"] << "\n";
 	std::cout << "    System ID = " << (*tcs->jInstallationInfo)["systemId"] << "\n";
-	std::cout << "    System mode = " << (*tcs->jStatus)["systemModeStatus"]["mode"] << "\n";
+	std::cout << "    System mode = " << eclient->get_system_mode(tcs) << "\n";
 
 	std::cout << "\nZones:\n";
 	std::cout << "      ID       temp    ";
