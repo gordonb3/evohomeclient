@@ -48,7 +48,7 @@ EvohomeClient::~EvohomeClient()
 
 /* private */ void EvohomeClient::init()
 {
-	m_szEmptyFieldResponse = "<null>";
+	m_szEmptyFieldResponse = "";
 }
 
 
@@ -393,47 +393,6 @@ bool EvohomeClient::full_installation()
  *	Evohome overrides						*
  *									*
  ************************************************************************/
-
-/*
- * Set the system mode
- */
-bool EvohomeClient::set_system_mode(const std::string szLocationId, const std::string szMode, const std::string szDateUntil)
-{
-	int i = 0;
-	int s = static_cast<int>(sizeof(evohome::API::system::mode));
-	while (s > 0)
-	{
-		if (evohome::API::system::mode[i] == szMode)
-			return set_system_mode(szLocationId, i, szDateUntil);
-		s -= static_cast<int>(sizeof(evohome::API::system::mode[i]));
-		i++;
-	}
-	return false;
-}
-bool EvohomeClient::set_system_mode(const std::string szLocationId, const unsigned int mode, const std::string szDateUntil)
-{
-	std::string szPutData = "{\"QuickAction\":\"";
-	szPutData.append(evohome::API::system::mode[mode]);
-	szPutData.append("\",\"QuickActionNextTime\":");
-	if (szDateUntil.empty())
-		szPutData.append("null}");
-	else if (!IsoTimeString::verify_date(szDateUntil))
-		return false;
-	else
-	{
-		szPutData.append("\"");
-		szPutData.append(szDateUntil.substr(0,10));
-		szPutData.append("T00:00:00Z\"}");
-	}
-
-	std::string szUrl = evohome::API::uri::get_uri(evohome::API::uri::systemMode, szLocationId);
-	EvoHTTPBridge::SafePUT(szUrl, szPutData, m_vEvoHeader, m_szResponse, -1);
-
-	if (m_szResponse.find("\"id\""))
-		return true;
-	return false;
-}
-
 
 /*
  * Override a zone's target temperature
