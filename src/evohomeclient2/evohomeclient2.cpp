@@ -50,7 +50,7 @@ EvohomeClient2::~EvohomeClient2()
  */
 /* private */ void EvohomeClient2::init()
 {
-	m_szEmptyFieldResponse = "<null>";
+	m_szEmptyFieldResponse = "";
 }
 
 
@@ -1263,7 +1263,7 @@ bool EvohomeClient2::is_single_heating_system()
 /*
  * Set mode for Hot Water device
  */
-bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string szMode,const  std::string szTimeUntil)
+bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string szMode, const  std::string szTimeUntil)
 {
 	std::string szPutData = "{\"State\":\"";
 	if (szMode == "on")
@@ -1299,6 +1299,11 @@ bool EvohomeClient2::set_dhw_mode(const std::string szDHWId, const std::string s
 	return false;
 }
 
+
+bool EvohomeClient2::cancel_dhw_override(const std::string szDHWId)
+{
+	return set_dhw_mode(szDHWId, "auto");
+}
 
 
 /************************************************************************
