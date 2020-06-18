@@ -250,7 +250,7 @@ bool EvohomeClient::is_session_valid()
 
 	int l = static_cast<int>((*jLocation)["devices"].size());
 	int zoneIdx = 0;
-	for (int i = 0; i < l; ++i)
+	for (int i = 0; i < l; i++)
 	{
 		if ((*jLocation)["devices"][i]["gatewayId"].asString() == m_vLocations[locationIdx].gateways[gatewayIdx].szGatewayId)
 		{
@@ -310,14 +310,14 @@ bool EvohomeClient::is_session_valid()
 	int l = static_cast<int>((*jLocation)["devices"].size());
 	std::string szGatewayID;
 	int gatewayIdx = 0;
-	for (int i = 0; i < l; ++i)
+	for (int i = 0; i < l; i++)
 	{
 		std::string szDeviceGatewayID = (*jLocation)["devices"][i]["gatewayId"].asString();
 		if (szDeviceGatewayID != szGatewayID)
 		{
 			szGatewayID = szDeviceGatewayID;
 			bool bNewgateway = true;
-			for (int j = 0; j < i; ++j)
+			for (int j = 0; j < i; j++)
 			{
 				if (m_vLocations[locationIdx].gateways[i].szGatewayId == szGatewayID)
 				{
@@ -372,7 +372,7 @@ bool EvohomeClient::full_installation()
 		return false;
 
 	int l = static_cast<int>(m_jFullInstallation["locations"].size());
-	for (int i = 0; i < l; ++i)
+	for (int i = 0; i < l; i++)
 	{
 		evohome::device::location newloc = evohome::device::location();
 		m_vLocations.push_back(newloc);
