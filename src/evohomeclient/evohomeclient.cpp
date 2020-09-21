@@ -107,20 +107,19 @@ bool EvohomeClient::login(const std::string &szUsername, const std::string &szPa
 	if (evohome::parse_json_string(m_szResponse, jLogin) < 0)
 		return false;
 
-	std::string szError = "";
-	if (jLogin.isMember("error"))
-		szError = jLogin["error"].asString();
-	if (jLogin.isMember("message"))
-		szError = jLogin["message"].asString();
-	if (!szError.empty())
-	{
-		m_szLastError = "Login to Evohome server failed with message: ";
-		m_szLastError.append(szError);
-		return false;
-	}
-
 	if (!jLogin.isMember("sessionId") || !jLogin.isMember("userInfo") || !jLogin["userInfo"].isObject() || !jLogin["userInfo"].isMember("userID"))
 	{
+		std::string szError = "";
+		if (jLogin.isMember("error"))
+			szError = jLogin["error"].asString();
+		if (jLogin.isMember("message"))
+			szError = jLogin["message"].asString();
+		if (!szError.empty())
+		{
+			m_szLastError = "Login to Evohome server failed with message: ";
+			m_szLastError.append(szError);
+			return false;
+		}
 		m_szLastError = "Login to Evohome server did not return required data";
 		return false;
 	}
@@ -179,10 +178,11 @@ bool EvohomeClient::load_auth_from_file(const std::string &szFilename)
 		myfile.close();
 	}
 	Json::Value jAuth;
-	Json::CharReaderBuilder jBuilder;
-	std::unique_ptr<Json::CharReader> jReader(jBuilder.newCharReader());
-	if (!jReader->parse(szFileContent.c_str(), szFileContent.c_str() + szFileContent.size(), &jAuth, nullptr))
+	if (evohome::parse_json_string(szFileContent, jAuth) < 0)
+	{
+		m_szLastError = "Failed to parse auth file content as JSON";
 		return false;
+	}
 
 	m_szSessionId = jAuth["session_id"].asString();
 	m_tLastWebCall = static_cast<time_t>(atoi(jAuth["last_use"].asString().c_str()));
@@ -221,6 +221,7 @@ bool EvohomeClient::is_session_valid()
 	if (jSession.isMember("code") && (jSession["code"].asString() != "-1") && (jSession["code"].asString() != "204"))
 	{
 		// session is no longer valid
+		m_szLastError = "Session terminated by server";
 		m_szUserId = "";
 		return false;
 	}
