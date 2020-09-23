@@ -17,6 +17,7 @@
 #include "evohomeclient.hpp"
 #include "../connection/EvoHTTPBridge.hpp"
 #include "../common/jsoncppbridge.hpp"
+#include "../common/messages.hpp"
 #include "../time/IsoTimeString.hpp"
 
 
@@ -105,22 +106,23 @@ bool EvohomeClient::login(const std::string &szUsername, const std::string &szPa
 
 	Json::Value jLogin;
 	if (evohome::parse_json_string(m_szResponse, jLogin) < 0)
+	{
+		m_szLastError = evohome::messages::invalidResponse;
 		return false;
+	}
 
 	if (!jLogin.isMember("sessionId") || !jLogin.isMember("userInfo") || !jLogin["userInfo"].isObject() || !jLogin["userInfo"].isMember("userID"))
 	{
 		std::string szError = "";
+		m_szLastError = "login returned ";
 		if (jLogin.isMember("error"))
 			szError = jLogin["error"].asString();
 		if (jLogin.isMember("message"))
 			szError = jLogin["message"].asString();
 		if (!szError.empty())
-		{
-			m_szLastError = "Login to Evohome server failed with message: ";
 			m_szLastError.append(szError);
-			return false;
-		}
-		m_szLastError = "Login to Evohome server did not return required data";
+		else
+			m_szLastError.append("an unhandled response");
 		return false;
 	}
 
@@ -180,7 +182,7 @@ bool EvohomeClient::load_auth_from_file(const std::string &szFilename)
 	Json::Value jAuth;
 	if (evohome::parse_json_string(szFileContent, jAuth) < 0)
 	{
-		m_szLastError = "Failed to parse auth file content as JSON";
+		m_szLastError = evohome::messages::invalidAuthfile;
 		return false;
 	}
 
@@ -214,7 +216,7 @@ bool EvohomeClient::is_session_valid()
 	Json::Value jSession;
 	if (evohome::parse_json_string(m_szResponse, jSession) < 0)
 	{
-		m_szLastError = "Failed to parse server response as JSON";
+		m_szLastError = evohome::messages::invalidResponse;
 		return false;
 	}
 
@@ -362,15 +364,15 @@ bool EvohomeClient::full_installation()
 	m_jFullInstallation.clear();
 	if (evohome::parse_json_string(m_szResponse, m_jFullInstallation) < 0)
 	{
-		m_szLastError = "Failed to parse server response as JSON";
+		m_szLastError = evohome::messages::invalidResponse;
 		return false;
 	}
 
-	if (!m_jFullInstallation["locations"].isArray())
+	if ( (!m_jFullInstallation["locations"].isArray()) || (!m_jFullInstallation["locations"][0].isMember("locationID")))
+	{
+		m_szLastError = "Server returned an unhandled response";
 		return false;
-
-	if (!m_jFullInstallation["locations"][0].isMember("locationID"))
-		return false;
+	}
 
 	int l = static_cast<int>(m_jFullInstallation["locations"].size());
 	for (int i = 0; i < l; i++)
@@ -406,7 +408,10 @@ bool EvohomeClient::set_temperature(const std::string szZoneId, const std::strin
 	if (szTimeUntil.empty())
 		szPutData.append(evohome::API::device::mode[1]);
 	else if (!IsoTimeString::verify_datetime(szTimeUntil))
+	{
+		m_szLastError = evohome::messages::invalidTimestamp;
 		return false;
+	}
 	else
 		szPutData.append(evohome::API::device::mode[2]);
 	szPutData.append("\",\"NextTime\":");
@@ -426,6 +431,7 @@ bool EvohomeClient::set_temperature(const std::string szZoneId, const std::strin
 
 	if (m_szResponse.find("\"id\""))
 		return true;
+	m_szLastError = evohome::messages::cmdRejected;
 	return false;
 }
 
@@ -442,6 +448,7 @@ bool EvohomeClient::cancel_temperature_override(const std::string szZoneId)
 
 	if (m_szResponse.find("\"id\""))
 		return true;
+	m_szLastError = evohome::messages::cmdRejected;
 	return false;
 }
 
@@ -475,7 +482,10 @@ bool EvohomeClient::set_dhw_mode(const std::string szDHWId, const std::string sz
 	else if (szTimeUntil.empty())
 		szPutData.append(evohome::API::device::mode[1]);
 	else if (!IsoTimeString::verify_datetime(szTimeUntil))
+	{
+		m_szLastError = evohome::messages::invalidTimestamp;
 		return false;
+	}
 	else
 		szPutData.append(evohome::API::device::mode[2]);
 
@@ -509,6 +519,7 @@ bool EvohomeClient::set_dhw_mode(const std::string szDHWId, const std::string sz
 
 	if (m_szResponse.find("\"id\""))
 		return true;
+	m_szLastError = evohome::messages::cmdRejected;
 	return false;
 }
 
