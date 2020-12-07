@@ -257,6 +257,7 @@ bool EvohomeClient2::load_auth_from_file(const std::string &szFilename)
 	if (evohome::parse_json_string(m_szResponse, jUserAccount) < 0)
 	{
 		m_szLastError = evohome::messages::invalidResponse;
+		m_szUserId = "";
 		return false;
 	}
 
@@ -804,8 +805,8 @@ std::string EvohomeClient2::get_next_switchpoint(evohome::device::zone *zone, st
 			time_t ntime = mktime(&ltime);
 			if (ntime > now)
 				found = true;
-			else if ((*jSwitchpoint).isMember("temperature"))
-				szCurrentSetpoint = (*jSwitchpoint)["temperature"].asString();
+			else if ((*jSwitchpoint).isMember("heatSetpoint"))
+				szCurrentSetpoint = (*jSwitchpoint)["heatSetpoint"].asString();
 			else
 				szCurrentSetpoint = (*jSwitchpoint)["dhwState"].asString();
 		}
