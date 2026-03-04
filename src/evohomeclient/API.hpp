@@ -11,7 +11,7 @@
 #include <string>
 #include <cstdint>
 
-#define EVOHOME_HOST "https://tccna.honeywell.com"
+#define EVOHOME_HOST "https://tccna.resideo.com"
 
 
 namespace evohome {
